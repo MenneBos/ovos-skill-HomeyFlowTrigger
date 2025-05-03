@@ -60,7 +60,7 @@ class HomeyFlowSkill(OVOSSkill):
         # Haal de intentnaam op uit het ontvangen bericht
         utterance = message.data.get("utterance", "").lower()
         flow_id = self.intent_sentence_to_flow.get(utterance)
-        self.log.info(f"Dit is de zin " + utterance + " die we mappen in settngs met flow.id")
+        self.log.info(f"Dit is de zin " + utterance + " die we mappen in settngs met " + flow_id)
 
         if not flow_id:
             self.speak("Ik weet niet welke flow hierbij hoort.")
@@ -68,7 +68,7 @@ class HomeyFlowSkill(OVOSSkill):
             return
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", os.path.expanduser("./nodejs/start_flow.js"), flow_id]
+        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
