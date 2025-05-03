@@ -16,9 +16,9 @@ const homeyApi = await HomeyAPI.createLocalAPI({
 
 try {
     await homeyApi.flow.triggerFlow({ uri: 'homey:manager:flow', id: "30386fd1-a1ab-4e31-a822-81d514089275" });
-    console.log(`Flow met ID ${flowId} gestart.`);
+    console.log(`✅ Flow gestart.`);
   } catch (err) {
-    console.error(`Kon flow ${flowId} niet starten: ${err.message}`);
+    console.error(`❌ Kon flow niet starten: ${err.message}`);
     process.exit(1);
   }
 

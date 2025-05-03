@@ -72,9 +72,9 @@ class HomeyFlowSkill(OVOSSkill):
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
-            response = result.stdout.strip() or "De flow trigger is gestart, maar gaf geen antwoord terug."
+            response = result.stdout.strip() or " ❌ De flow trigger is gestart, maar gaf geen antwoord terug."
         except subprocess.CalledProcessError as e:
-            response = "Er ging iets mis bij het starten van de flow."
-            self.log.error(f"Fout bij starten van flow-id {flow_id}: {e.stderr}")
+            response = " ❌ Er ging iets mis bij het starten van de flow."
+            self.log.error(f"❌ Fout bij starten van flow-id {e.stderr}")
 
         self.speak(response)
