@@ -33,8 +33,10 @@ class HomeyFlowSkill(OVOSSkill):
         )
     
     def initialize(self,):
-        self.settings.merge(DEFAULT_SETTINGS, new_only=True)
-        self.settings_change_callback = self.on_settings_changed
+        # Laad alle intent-naar-flow-id koppelingen uit settings.json
+        self.intent_sentence_to_flow = self.settings.get("intent_sentence_to_flow_map", {})
+        # Registreer de intent die deze skill activeert
+        self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
 
     def on_settings_changed(self):
@@ -47,30 +49,27 @@ class HomeyFlowSkill(OVOSSkill):
         If it doesn't exist, return the default value.
         This will reflect live changes to settings.json files (local or from backend)
         """
-        return self.settings.get("log_level", "INFO")
-    
-    @intent_handler(IntentBuilder('HomeyFlow.intent').require('action').require('object').optionally('location'))
+        return self.settings.get("log_level", "INFO")   
+
     def handle_start_flow(self, message):
-
-        # Haal keyword(s) op uit vocab via message.utterance
+        # Haal de intentnaam op uit het ontvangen bericht
         utterance = message.data.get("utterance", "").lower()
-        keywords = []
-        for vocab_entry in self.vocab_loader.load_vocabulary("keyword"):
-            if vocab_entry.lower() in utterance:
-                keywords.append(vocab_entry)
-        LOG.info("Homey Flow met keywords: " + str(keywords) + " wordt gestart")
+        flow_id = self.intent_sentence_to_flow.get(utterance)
+        self.log.info(f"Dit is de zin" + utterance + " die we mappen in settngs met flow.id")
 
-        if not keywords:
-            self.log.error("Geen keywords gevonden in de utterance. Flow wordt niet gestart.")
-            self.speak("Ik heb geen relevante woorden gevonden om een flow te starten.")
+        if not flow_id:
+            self.speak("Ik weet niet welke flow hierbij hoort.")
+            self.log.error(f"Geen flow-id gevonden voor intent: {intent_name}")
             return
 
-        args = ["node", "~/my-homey-integration/start_flow.js"] + keywords
+        # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
+        args = ["node", os.path.expanduser("~/my-homey-integration/start_flow_by_id.js"), flow_id]
+
         try:
-            result = subprocess.run(args, check=True, capture_output=True, text=True)
-            response = result.stdout.strip() or "Ik heb geen reactie van Homey ontvangen."
+            result = subprocess.run(args, capture_output=True, text=True, check=True)
+            response = result.stdout.strip() or "De flow trigger is gestart, maar gaf geen antwoord terug."
         except subprocess.CalledProcessError as e:
-            response = f"Er ging iets mis bij het starten van de flow."
-            LOG.error(f"Homey error: {e.stderr}")
-        
+            response = "Er ging iets mis bij het starten van de flow."
+            self.log.error(f"Fout bij starten van flow-id {flow_id}: {e.stderr}")
+
         self.speak(response)
