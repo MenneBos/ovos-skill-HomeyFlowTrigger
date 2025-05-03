@@ -68,7 +68,7 @@ class HomeyFlowSkill(OVOSSkill):
             return
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", os.path.expanduser("~/my-homey-integration/start_flow_by_id.js"), flow_id]
+        args = ["node", os.path.expanduser("./start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
