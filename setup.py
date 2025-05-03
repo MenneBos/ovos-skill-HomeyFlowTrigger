@@ -5,7 +5,7 @@ from os import walk, path
 from os.path import join, dirname
 # from setuptools import setup, find_packages
 
-URL = "https://github.com/MenneBos/skill-ovos-curtain"
+URL = "https://github.com/MenneBos/ovos-skill-HomeyflowTrigger"
 SKILL_CLAZZ = "HomeyFlowSkill"  # needs to match __init__.py class name
 PYPI_NAME = "ovos-skill-HomeyFlowTrigger"  # pip install PYPI_NAME
 
