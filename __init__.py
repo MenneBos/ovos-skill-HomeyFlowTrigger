@@ -33,10 +33,14 @@ class HomeyFlowSkill(OVOSSkill):
         )
     
     def initialize(self,):
-        # Laad alle intent-naar-flow-id koppelingen uit settings.json
-        self.intent_sentence_to_flow = self.settings.get("intent_sentence_to_flow_map", {})
-        # Registreer de intent die deze skill activeert
-        self.register_intent("HomeyFlow.intent", self.handle_start_flow)
+        mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
+        if os.path.exists(mapping_path):
+            with open(mapping_path, "r") as f:
+                self.intent_sentence_to_flow = json.load(f)
+        else:
+            self.intent_sentence_to_flow = {}
+
+        self.register_intent("mapped.flow.intent", self.handle_start_flow)
 
 
     def on_settings_changed(self):
@@ -55,11 +59,11 @@ class HomeyFlowSkill(OVOSSkill):
         # Haal de intentnaam op uit het ontvangen bericht
         utterance = message.data.get("utterance", "").lower()
         flow_id = self.intent_sentence_to_flow.get(utterance)
-        self.log.info(f"Dit is de zin" + utterance + " die we mappen in settngs met flow.id")
+        self.log.info(f"Dit is de zin " + utterance + " die we mappen in settngs met flow.id")
 
         if not flow_id:
             self.speak("Ik weet niet welke flow hierbij hoort.")
-            self.log.error(f"Geen flow-id gevonden voor intent: {intent_name}")
+            self.log.error(f"Geen flow-id gevonden voor intent: {utterance}")
             return
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
