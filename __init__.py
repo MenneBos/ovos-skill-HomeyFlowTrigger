@@ -34,15 +34,8 @@ class HomeyFlowSkill(OVOSSkill):
         )
     
     def initialize(self,):
-        mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
-        if os.path.exists(mapping_path):
-            with open(mapping_path, "r") as f:
-                self.intent_sentence_to_flow = json.load(f)
-        else:
-            self.intent_sentence_to_flow = {}
-
+        self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
         self.register_intent("HomeyFlow.intent", self.handle_start_flow)
-
 
     def on_settings_changed(self):
         """This method is called when the skill settings are changed."""
@@ -59,13 +52,23 @@ class HomeyFlowSkill(OVOSSkill):
     def handle_start_flow(self, message):
         # Haal de intentnaam op uit het ontvangen bericht
         utterance = message.data.get("utterance", "").lower()
-        flow_id = self.intent_sentence_to_flow.get(utterance)
-        self.log.info(f"Dit is de zin " + utterance + " die we mappen in settngs met " + flow_id)
 
-        if not flow_id:
-            self.speak("Ik weet niet welke flow hierbij hoort.")
-            self.log.error(f"Geen flow-id gevonden voor intent: {utterance}")
+        try:
+            with open(self.flow_mapping_path, "r") as f:
+                mappings = json.load(f)
+        except Exception as e:
+            self.log.error(f"Kan flow_mappings.json niet laden: {e}")
+            self.speak("Er ging iets mis bij het openen van de flow instellingen.")
             return
+
+        flow_info = mappings.get(utterance)
+        if not flow_info or "id" not in flow_info:
+            self.speak("Ik weet niet welke flow ik moet starten.")
+            self.log.error(f"Geen geldige flow-info voor intentzin: {utterance}")
+            return
+
+        flow_id = flow_info["id"]
+        flow_name = flow_info.get("name", "deze flow")
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
