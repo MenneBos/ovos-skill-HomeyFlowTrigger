@@ -78,7 +78,7 @@ setup(
     license='Apache-2.0',
     include_package_data=True,
     package_dir={SKILL_PKG: ""},
-    package_data={SKILL_PKG: ['/nodejs/*.json','/nodejs/*.js']},
+    package_data={SKILL_PKG: ['/nodejs/*.json','/nodejs/*.js', 'shared']},
     packages=[SKILL_PKG],
     keywords='ovos skill plugin',
     entry_points={'ovos.plugin.skill': PLUGIN_ENTRY_POINT}
