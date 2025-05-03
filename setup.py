@@ -29,7 +29,7 @@ def get_requirements(requirements_filename: str):
 
 def get_version():
     """ Find the version of this skill"""
-    version_file = os.path.join(os.path.dirname(__file__), 'ovos-skill-HomeyFlowTrigger', 'version.py')
+    version_file = os.path.join(os.path.dirname(__file__), 'version.py')
     major, minor, build, alpha = (None, None, None, None)
     with open(version_file) as f:
         for line in f:
