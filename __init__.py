@@ -41,7 +41,7 @@ class HomeyFlowSkill(OVOSSkill):
         else:
             self.intent_sentence_to_flow = {}
 
-        self.register_intent("mapped.flow.intent", self.handle_start_flow)
+        self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
 
     def on_settings_changed(self):
