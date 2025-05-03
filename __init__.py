@@ -6,6 +6,7 @@ from ovos_workshop.decorators import intent_handler
 from ovos_workshop.skills import OVOSSkill
 import os
 import subprocess
+import json
 
 DEFAULT_SETTINGS = {
     "log_level": "INFO"
