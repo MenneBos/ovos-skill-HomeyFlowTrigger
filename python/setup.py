@@ -76,10 +76,10 @@ setup(
     description='A skill to trigger a flow in homey based on keywords',
     author_email='your.email@example.com',
     license='Apache-2.0',
-    package_dir={SKILL_PKG: ""},
-    package_data={SKILL_PKG: find_resource_files()},
-    packages=[SKILL_PKG],
     include_package_data=True,
+    package_dir={SKILL_PKG: ""},
+    package_data={SKILL_PKG: ['/nodejs/*.json','/nodejs/*.js']},
+    packages=[SKILL_PKG],
     keywords='ovos skill plugin',
     entry_points={'ovos.plugin.skill': PLUGIN_ENTRY_POINT}
 )
