@@ -18,7 +18,7 @@ try {
     await homeyApi.flow.triggerFlow({ uri: 'homey:manager:flow', id: flowId });
     console.log(`✅ Flow gestart.`);
   } catch (err) {
-    console.error(`❌ Kon flow niet starten: ${err.message}`);
+    console.error(`❌ Kon API niet starten: ${err.message}`);
     process.exit(1);
   }
 

@@ -76,6 +76,10 @@ setup(
     description='A skill to trigger a flow in homey based on keywords',
     author_email='your.email@example.com',
     license='Apache-2.0',
+    install_requires=[
+        "paho-mqtt",
+        "cryptography"
+    ],
     include_package_data=True,
     package_dir={SKILL_PKG: ""},
     package_data={SKILL_PKG: find_resource_files()},
