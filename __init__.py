@@ -100,9 +100,13 @@ class HomeyFlowSkill(OVOSSkill):
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
-            payload = json.loads(msg.payload.decode())
-            self.log.info(f"Wat is de ontavngen topic" + topic+ " met payload: " + str(payload))
-             
+            payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
+            if payload:  # Check if the payload is not empty
+                payload = json.loads(payload)
+            else:
+                payload = {}  # Default to an empty dictionary if no payload is provided
+
+            self.log.info(f"Received topic: {topic} with payload: {payload}")
             if topic == "request_flow_mappings":
                 self._send_flow_mappings()
 
