@@ -37,6 +37,7 @@ class HomeyFlowSkill(OVOSSkill):
 
     def initialize(self):
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
+        self.intent_file_path = os.path.join(self.root_dir, "HomeyFlow.intent")
         self.register_intent("HomeyFlow.intent", self.handle_start_flow)
         self._setup_mqtt()
 
