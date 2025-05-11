@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Mappings Manager</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    button, input {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    #flowMappings {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .flow {
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    .flow input {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Flow Mappings Manager</h1>
+  <label for="brokerIp">Broker IP Address:</label>
+  <input type="text" id="brokerIp" placeholder="Enter Broker IP (e.g., 192.168.5.27)">
+  <br>
+  <button id="connectBroker">Connect to Broker</button>
+  <br>
+  <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
+  <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
+  <button id="requestFlows" disabled>Request Flows</button>
+
+  <div id="flowMappings">
+    <h2>Flow Mappings</h2>
+    <div id="flowsContainer"></div>
+  </div>
+
+  <script>
+    let client; // MQTT client
+    let flowMappings = {}; // Local copy of flow_mappings.json
+
+    // Connect to the broker
+    document.getElementById('connectBroker').addEventListener('click', () => {
+      const brokerIp = document.getElementById('brokerIp').value.trim();
+
+      if (!brokerIp) {
+        alert('Please enter a valid broker IP address.');
+        return;
+      }
+
+      // Connect to the broker using plain WebSocket
+      client = mqtt.connect(`ws://${brokerIp}:1883`);
+
+      client.on('connect', () => {
+        console.log('Connected to MQTT broker');
+        alert('Connected to MQTT broker');
+        client.subscribe('send_flow_mappings');
+        client.subscribe('saved_flow_mappings');
+        client.subscribe('send_flows');
+
+        // Enable buttons after successful connection
+        document.getElementById('requestFlowMappings').disabled = false;
+        document.getElementById('saveFlowMappings').disabled = false;
+        document.getElementById('requestFlows').disabled = false;
+      });
+
+      client.on('error', (err) => {
+        console.error('Connection error:', err);
+        alert('Failed to connect to the broker. Check the IP address and broker configuration.');
+      });
+
+		// Subscribe to the send_flow_mappings topic and display the content
+		client.on('message', (topic, message) => {
+		  const payload = JSON.parse(message.toString());
+		  if (topic === 'send_flow_mappings') {
+			flowMappings = payload; // Update the local flowMappings object
+			displayFlowMappings(); // Display the content in the UI
+		  } else if (topic === 'saved_flow_mappings') {
+			alert(payload.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${payload.error}`);
+		  } else if (topic === 'send_flows') {
+			displayAvailableFlows(payload);
+		  }
+		});
+    });
+
+	// Request flow mappings when the button is clicked
+	document.getElementById('requestFlowMappings').addEventListener('click', () => {
+	  client.publish('request_flow_mappings', ''); // Publish a request to the broker
+	});
+	
+    // Save flow mappings
+    document.getElementById('saveFlowMappings').addEventListener('click', () => {
+      client.publish('save_flow_mappings', JSON.stringify(flowMappings));
+    });
+
+    // Request flows
+    document.getElementById('requestFlows').addEventListener('click', () => {
+      const searchString = prompt('Enter a search string for flows:');
+      client.publish('request_flows', JSON.stringify({ name: searchString }));
+    });
+
+	function displayFlowMappings() {
+	  const container = document.getElementById('flowsContainer');
+	  container.innerHTML = ''; // Clear the container
+
+	  for (const [flowName, flowData] of Object.entries(flowMappings)) {
+		const flowDiv = document.createElement('div');
+		flowDiv.className = 'flow';
+
+		const title = document.createElement('h3');
+		title.textContent = `${flowName} (ID: ${flowData.flow_id})`;
+		flowDiv.appendChild(title);
+
+		const sentencesContainer = document.createElement('div');
+		flowData.sentences.forEach((sentence, index) => {
+		  const input = document.createElement('input');
+		  input.type = 'text';
+		  input.value = sentence;
+		  input.addEventListener('change', (e) => {
+			flowData.sentences[index] = e.target.value; // Update the sentence
+		  });
+		  sentencesContainer.appendChild(input);
+		});
+
+		const addSentenceButton = document.createElement('button');
+		addSentenceButton.textContent = 'Add Sentence';
+		addSentenceButton.addEventListener('click', () => {
+		  const newSentence = prompt('Enter a new sentence:');
+		  if (newSentence) {
+			flowData.sentences.push(newSentence);
+			displayFlowMappings(); // Refresh the display
+		  }
+		});
+
+		const deleteFlowButton = document.createElement('button');
+		deleteFlowButton.textContent = 'Delete Flow';
+		deleteFlowButton.addEventListener('click', () => {
+		  delete flowMappings[flowName]; // Remove the flow
+		  displayFlowMappings(); // Refresh the display
+		});
+
+		flowDiv.appendChild(sentencesContainer);
+		flowDiv.appendChild(addSentenceButton);
+		flowDiv.appendChild(deleteFlowButton);
+		container.appendChild(flowDiv);
+	  }
+	}
+
+    // Display available flows for adding
+    function displayAvailableFlows(flows) {
+      const flowNames = flows.map(flow => `${flow.name} (ID: ${flow.id})`);
+      const selectedFlow = prompt(`Available Flows:\n${flowNames.join('\n')}\n\nEnter the name of the flow to add:`);
+      const flowToAdd = flows.find(flow => flow.name === selectedFlow);
+      if (flowToAdd) {
+        flowMappings[flowToAdd.name] = { id: flowToAdd.id, sentences: [] };
+        displayFlowMappings();
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,13 +1,12 @@
 {
-    "Flow Name 1": {
-      "flow_id": "flow_id_1",
-      "sentences": ["intent sentence 1", "intent sentence 2"],
+    "Kantoor Check out": {
+      "flow_id": "fdf1522a-775e-498a-89c4-7407e93db6a5",
+      "sentences": ["afwezig in kantoor"],
       "favorite_flow": "yes"
     },
-    "Flow Name 2": {
-      "flow_id": "flow_id_2",
-      "sentences": ["intent sentence 3"],
-      "favorite_flow": "no"
+    "Kantoor Check in": {
+      "flow_id": "30386fd1-a1ab-4e31-a822-81d514089275",
+      "sentences": ["aanwezig in kantoor"],
+      "favorite_flow": "yes"
     }
   }
-  

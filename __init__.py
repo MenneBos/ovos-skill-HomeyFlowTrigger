@@ -1,3 +1,8 @@
+from ovos_utils import classproperty
+from ovos_utils.log import LOG
+#from ovos_workshop.intents import IntentBuilder
+from ovos_utils.process_utils import RuntimeRequirements
+#from ovos_workshop.decorators import intent_handler
 from ovos_workshop.skills.ovos import OVOSSkill
 import subprocess
 import os
@@ -5,263 +10,152 @@ import json
 import paho.mqtt.client as mqtt
 import crypt  # For password hashing comparison
 
+DEFAULT_SETTINGS = {
+    "log_level": "INFO"
+}
+
 class HomeyFlowSkill(OVOSSkill):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.override = True
+
+    @classproperty
+    def runtime_requirements(self):
+        # if this isn't defined the skill will
+        # only load if there is internet
+        return RuntimeRequirements(
+            internet_before_load=False,
+            network_before_load=True,
+            gui_before_load=False,
+            requires_internet=False,
+            requires_network=True,
+            requires_gui=False,
+            no_internet_fallback=True,
+            no_network_fallback=True,
+            no_gui_fallback=True,
+        )
+
     def initialize(self):
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
         self.register_intent("HomeyFlow.intent", self.handle_start_flow)
         self._setup_mqtt()
 
+    def on_settings_changed(self):
+        """This method is called when the skill settings are changed."""
+        LOG.info("Settings changed!")
+
+    @property
+    def log_level(self):
+        """Dynamically get the 'log_level' value from the skill settings file.
+        If it doesn't exist, return the default value.
+        This will reflect live changes to settings.json files (local or from backend)
+        """
+        return self.settings.get("log_level", "INFO")   
+
     def _setup_mqtt(self):
         self.client = mqtt.Client()
-        self.client.tls_set(
-            ca_certs="/etc/mosquitto/certs/ca.crt",
-            certfile="/etc/mosquitto/certs/client.crt",
-            keyfile="/etc/mosquitto/certs/client.key"
-        )
+        #self.client.tls_set(
+        #    ca_certs="/etc/mosquitto/certs/ca.crt",
+        #    certfile="/etc/mosquitto/certs/client.crt",
+        #    keyfile="/etc/mosquitto/certs/client.key"
+        #)
 
         # Dynamically load username and password from /etc/mosquitto/passwd
-        username, password = self._get_mqtt_credentials("/etc/mosquitto/passwd")
-        if not username or not password:
-            self.log.error("❌ Kon geen MQTT-gebruikersnaam en wachtwoord laden.")
-            return
+        #username, password = self._get_mqtt_credentials("/etc/mosquitto/passwd")
+        #if not username or not password:
+        #    self.log.error("❌ Kon geen MQTT-gebruikersnaam en wachtwoord laden.")
+        #    return
 
-        self.client.username_pw_set(username, password)
-        self.client.connect("ovos-server.local", 8883, 60)
-        self.client.subscribe("homey/add_flowmap")
-        self.client.subscribe("homey/remove_flowmap")
+        #self.client.username_pw_set(username, password)
+        #self.client.connect("ovos-server.local", 8883, 60)
+        
+        self.client.connect("192.168.5.27", 1883, 60)  # Replace with your broker's IP and port
+        self.client.subscribe("request_flow_mappings")
+        self.client.subscribe("save_flow_mappings")
+        self.client.subscribe("request_flows")
         self.client.on_message = self._on_mqtt_message
         self.client.loop_start()
 
-    def _get_mqtt_credentials(self, passwd_file_path):
-        """
-        Reads the Mosquitto passwd file and extracts the first username and password.
-        Assumes the password is hashed and matches the client certificate.
-        """
-        try:
-            with open(passwd_file_path, "r") as f:
-                for line in f:
-                    if line.strip() and not line.startswith("#"):
-                        parts = line.split(":")
-                        if len(parts) == 2:
-                            username = parts[0].strip()
-                            hashed_password = parts[1].strip()
-                            # Return the username and hashed password (if needed for validation)
-                            return username, hashed_password
-        except Exception as e:
-            self.log.error(f"❌ Fout bij het lezen van het passwd-bestand: {e}")
-        return None, None
+        self.log.info("✅ Verbonden met MQTT-broker en wacht op berichten.")    
+
+    #def _get_mqtt_credentials(self, passwd_file_path):
+    #    """
+    #    Reads the Mosquitto passwd file and extracts the first username and password.
+    #    Assumes the password is hashed and matches the client certificate.
+    #    """
+    #    try:
+    #        with open(passwd_file_path, "r") as f:
+    #            for line in f:
+    #                if line.strip() and not line.startswith("#"):
+    #                    parts = line.split(":")
+    #                    if len(parts) == 2:
+    #                        username = parts[0].strip()
+    #                        hashed_password = parts[1].strip()
+    #                        # Return the username and hashed password (if needed for validation)
+    #                        return username, hashed_password
+    #    except Exception as e:
+    #        self.log.error(f"❌ Fout bij het lezen van het passwd-bestand: {e}")
+    #    return None, None
     
     def _on_mqtt_message(self, client, userdata, msg):
         try:
-            payload = json.loads(msg.payload.decode())
             topic = msg.topic
-            utterance = payload.get("utterance")
-            flow_name = payload.get("name")
+            payload = json.loads(msg.payload.decode())
 
-            with open(self.flow_mapping_path, "r") as f:
-                mappings = json.load(f)
+            if topic == "request_flow_mappings":
+                self._send_flow_mappings()
 
-            if topic == "homey/add_flowmap":
-                self._add_flow_mapping(payload, mappings)
+            elif topic == "save_flow_mappings":
+                self._save_flow_mappings(payload)
 
-            elif topic == "homey/remove_flowmap":
-                self._remove_flow_mapping(payload, mappings)
-
-            elif topic == "homey/show_flowmap":
-                self._update_flow_mappings(mappings)
-
-            elif topic == "homey/delete_flowmap":
-                self._delete_non_favorite_flows(mappings)
+            elif topic == "request_flows":
+                self._request_flows(payload)
 
         except Exception as e:
-            self.log.error(f"❌ Fout bij verwerken MQTT-bericht: {e}")
+            self.log.error(f"❌ Fout bij verwerken MQTT-bericht: {e}") 
             self.speak("Er ging iets mis bij het verwerken van het MQTT-bericht.")
 
-    def _add_flow_mapping(self, payload, mappings):
-        """
-        Adds a new intent sentence to the flow_name record in flow_mappings.json.
-        """
+    def _send_flow_mappings(self):
         try:
-            utterance = payload.get("utterance")
-            flow_name = payload.get("name")
-
-            if not utterance or not flow_name:
-                self.log.error("❌ MQTT-bericht onvolledig")
-                self.speak("MQTT-bericht onvolledig")
-                return
-
-            # Add the sentence to the flow_name record
-            if flow_name in mappings:
-                if utterance not in mappings[flow_name]["sentences"]:
-                    mappings[flow_name]["sentences"].append(utterance)
-                    self.log.info(f"✅ Intentzin toegevoegd aan flow: '{utterance}' -> {flow_name}")
-                else:
-                    self.log.warning(f"⚠️ Intentzin bestaat al voor flow: '{utterance}' -> {flow_name}")
-                    self.speak("Deze intentzin bestaat al.")
-                    return
-            else:
-                # Create a new flow_name record if it doesn't exist
-                mappings[flow_name] = {
-                    "flow_id": payload.get("id", "unknown"),
-                    "sentences": [utterance],
-                    "favorite_flow": "no"
-                }
-                self.log.info(f"✅ Nieuwe flow toegevoegd: '{flow_name}' met intentzin '{utterance}'")
-
-            # Save the updated mappings to the JSON file
-            with open(self.flow_mapping_path, "w") as f:
-                json.dump(mappings, f, indent=2)
-
-            # Add the sentence to the HomeyFlow.intent file
-            intent_file_path = os.path.join(self.root_dir, "locale", "nl-NL", "HomeyFlow.intent")
-            os.makedirs(os.path.dirname(intent_file_path), exist_ok=True)
-            with open(intent_file_path, "a") as intent_file:
-                intent_file.write(f"{utterance}\n")
-
-            self.speak(f"Intentzin '{utterance}' is toegevoegd aan de flow '{flow_name}'.")
-
+            with open(self.flow_mapping_path, "r") as f:
+                mappings = json.load(f)
+            self.client.publish("send_flow_mappings", json.dumps(mappings))
+            self.log.info("✅ Flow mappings verzonden.")
         except Exception as e:
-            self.log.error(f"❌ Fout bij toevoegen van flow mapping: {e}")
-            self.speak("Er ging iets mis bij het toevoegen van de flow mapping.")
+            self.log.error(f"❌ Fout bij het verzenden van flow mappings: {e}")
 
-    def _remove_flow_mapping(self, payload, mappings):
-        """
-        Removes an intent sentence from the flow_name record in flow_mappings.json
-        and from the HomeyFlow.intent file.
-        """
+    def _save_flow_mappings(self, payload):
         try:
-            utterance = payload.get("utterance")
-            flow_name = payload.get("name")
-
-            if not utterance or not flow_name:
-                self.log.error("❌ MQTT-bericht onvolledig")
-                self.speak("MQTT-bericht onvolledig")
-                return
-
-            # Remove the sentence from the flow_name record
-            if flow_name in mappings:
-                if utterance in mappings[flow_name]["sentences"]:
-                    mappings[flow_name]["sentences"].remove(utterance)
-                    self.log.info(f"✅ Intentzin verwijderd uit flow: '{utterance}' -> {flow_name}")
-
-                    # If no sentences remain, remove the flow_name record
-                    if not mappings[flow_name]["sentences"]:
-                        del mappings[flow_name]
-                        self.log.info(f"✅ Flow '{flow_name}' verwijderd omdat er geen intentzinnen meer zijn.")
-                else:
-                    self.log.warning(f"⚠️ Intentzin niet gevonden in flow: '{utterance}' -> {flow_name}")
-                    self.speak("Deze intentzin is niet gevonden in de flow.")
-                    return
-            else:
-                self.log.warning(f"⚠️ Flow niet gevonden: '{flow_name}'")
-                self.speak("Deze flow is niet gevonden.")
-                return
-
-            # Save the updated mappings to the JSON file
+            # Overwrite the flow_mappings.json file
             with open(self.flow_mapping_path, "w") as f:
-                json.dump(mappings, f, indent=2)
+                json.dump(payload, f, indent=2)
 
-            # Remove the sentence from the HomeyFlow.intent file
-            intent_file_path = os.path.join(self.root_dir, "locale", "nl-NL", "HomeyFlow.intent")
-            if os.path.exists(intent_file_path):
-                with open(intent_file_path, "r") as intent_file:
-                    lines = intent_file.readlines()
-                with open(intent_file_path, "w") as intent_file:
-                    for line in lines:
-                        if line.strip() != utterance:
-                            intent_file.write(line)
+            # Overwrite the HomeyFlow.intent file
+            utterances = []
+            for flow in payload.values():
+                utterances.extend(flow.get("sentences", []))
+            os.makedirs(os.path.dirname(self.intent_file_path), exist_ok=True)
+            with open(self.intent_file_path, "w") as intent_file:
+                intent_file.write("\n".join(utterances))
 
-            self.speak(f"Intentzin '{utterance}' is verwijderd uit de flow '{flow_name}'.")
-
+            self.client.publish("saved_flow_mappings", json.dumps({"status": "success"}))
+            self.log.info("✅ Flow mappings opgeslagen.")
         except Exception as e:
-            self.log.error(f"❌ Fout bij verwijderen van flow mapping: {e}")
-            self.speak("Er ging iets mis bij het verwijderen van de flow mapping.")
+            self.client.publish("saved_flow_mappings", json.dumps({"status": "failure", "error": str(e)}))
+            self.log.error(f"❌ Fout bij het opslaan van flow mappings: {e}")
 
-    def _update_flow_mappings(self, mappings):
-        """
-        Updates the flow_mappings.json file with favorite flows from the Homey API.
-        """
+    def _request_flows(self, payload):
         try:
-            # Run the Node.js script to fetch favorite flows
-            args = ["node", os.path.join(self.root_dir, "get_favorite_flows.js")]
+            search_string = payload.get("name", "")
+            args = ["node", os.path.join(self.root_dir, "get_flow.js"), search_string]
             result = subprocess.run(args, capture_output=True, text=True, check=True)
-            favorite_flows = json.loads(result.stdout.strip())
-
-            # Update the mappings with the favorite flows
-            for flow in favorite_flows:
-                flow_id = flow["id"]
-                flow_name = flow["name"]
-
-                if flow_name in mappings:
-                    # Update existing flow entry
-                    mappings[flow_name]["favorite_flow"] = "yes"
-                else:
-                    # Add new flow entry
-                    mappings[flow_name] = {
-                        "flow_id": flow_id,
-                        "sentences": ["none"],
-                        "favorite_flow": "yes"
-                    }
-
-            # Mark flows no longer favorite
-            favorite_flow_names = [flow["name"] for flow in favorite_flows]
-            for flow_name in list(mappings.keys()):
-                if flow_name not in favorite_flow_names:
-                    mappings[flow_name]["favorite_flow"] = "no"
-
-            # Save the updated mappings to the JSON file
-            with open(self.flow_mapping_path, "w") as f:
-                json.dump(mappings, f, indent=2)
-
-            self.log.info("✅ Flow mappings bijgewerkt met favoriete flows.")
-            self.speak("De flow mappings zijn bijgewerkt.")
-
+            flows = json.loads(result.stdout.strip())
+            self.client.publish("send_flows", json.dumps(flows))
+            self.log.info("✅ Flows verzonden.")
         except subprocess.CalledProcessError as e:
-            self.log.error(f"❌ Fout bij ophalen van favoriete flows: {e.stderr}")
-            self.speak("Er ging iets mis bij het ophalen van de favoriete flows.")
+            self.log.error(f"❌ Fout bij ophalen van flows: {e.stderr}")
         except Exception as e:
-            self.log.error(f"❌ Fout bij het bijwerken van flow mappings: {e}")
-            self.speak("Er ging iets mis bij het bijwerken van de flow mappings.")
-
-    def _delete_non_favorite_flows(self, mappings):
-        """
-        Deletes all flows with "favorite_flow": "no" from flow_mappings.json
-        and removes their sentences from the HomeyFlow.intent file.
-        """
-        try:
-            # Collect all sentences to be removed
-            sentences_to_remove = []
-            flows_to_delete = []
-
-            for flow_name, flow_data in mappings.items():
-                if flow_data.get("favorite_flow") == "no":
-                    sentences_to_remove.extend(flow_data.get("sentences", []))
-                    flows_to_delete.append(flow_name)
-
-            # Remove flows from mappings
-            for flow_name in flows_to_delete:
-                del mappings[flow_name]
-                self.log.info(f"✅ Flow '{flow_name}' verwijderd omdat het niet favoriet is.")
-
-            # Save the updated mappings to the JSON file
-            with open(self.flow_mapping_path, "w") as f:
-                json.dump(mappings, f, indent=2)
-
-            # Update the HomeyFlow.intent file
-            intent_file_path = os.path.join(self.root_dir, "locale", "nl-NL", "HomeyFlow.intent")
-            if os.path.exists(intent_file_path):
-                with open(intent_file_path, "r") as intent_file:
-                    lines = intent_file.readlines()
-                with open(intent_file_path, "w") as intent_file:
-                    for line in lines:
-                        if line.strip() not in sentences_to_remove:
-                            intent_file.write(line)
-
-            self.speak("Alle niet-favoriete flows zijn verwijderd.")
-
-        except Exception as e:
-            self.log.error(f"❌ Fout bij verwijderen van niet-favoriete flows: {e}")
-            self.speak("Er ging iets mis bij het verwijderen van niet-favoriete flows.")
+            self.log.error(f"❌ Fout bij verwerken van flows: {e}") 
 
     def handle_start_flow(self, message):
         utterance = message.data.get("utterance", "").lower()

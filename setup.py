@@ -51,7 +51,7 @@ def get_version():
     return version
 
 def find_resource_files():
-    resource_base_dirs = ("locale", "vocab", "nodejs", "intent", "dialog", "regex", "skill")
+    resource_base_dirs = ("locale", "vocab", "nodejs", "shared", "intent", "dialog", "regex", "skill")
     base_dir = path.dirname(__file__)
     package_data = ["*.json"]
     for res in resource_base_dirs:
@@ -78,7 +78,6 @@ setup(
     license='Apache-2.0',
     install_requires=[
         "paho-mqtt",
-        "cryptography"
     ],
     include_package_data=True,
     package_dir={SKILL_PKG: ""},
