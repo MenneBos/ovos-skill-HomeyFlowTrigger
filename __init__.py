@@ -153,7 +153,7 @@ class HomeyFlowSkill(OVOSSkill):
     def _request_flows(self, payload):
         try:
             search_string = payload.get("name", "")
-            args = ["node", os.path.join(self.root_dir, "get_flow.js"), search_string]
+            args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/get_flow.js"), search_string]
             result = subprocess.run(args, capture_output=True, text=True, check=True)
             flows = json.loads(result.stdout.strip())
             self.client.publish("send_flows", json.dumps(flows))
@@ -183,7 +183,8 @@ class HomeyFlowSkill(OVOSSkill):
         flow_id = flow_info["id"]
         flow_name = flow_info.get("name", "deze flow")
 
-        args = ["node", os.path.join(self.root_dir, "start_flow_by_id.js"), flow_id]
+        # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
+        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
