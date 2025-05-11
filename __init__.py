@@ -101,7 +101,8 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             topic = msg.topic
             payload = json.loads(msg.payload.decode())
-
+            self.log.info(f"Wat is de ontavngen topic" + topic+ " met payload: " + str(payload))
+             
             if topic == "request_flow_mappings":
                 self._send_flow_mappings()
 

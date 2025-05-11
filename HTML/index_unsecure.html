@@ -62,7 +62,7 @@
       }
 
       // Connect to the broker using plain WebSocket
-      client = mqtt.connect(`ws://${brokerIp}:1883`);
+      client = mqtt.connect(`ws://${brokerIp}:9001`);
 
       client.on('connect', () => {
         console.log('Connected to MQTT broker');
