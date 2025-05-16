@@ -177,10 +177,21 @@
 
     // Display available flows for adding
     function displayAvailableFlows(flows) {
-      const flowNames = flows.map(flow => flow.name); // Extract flow names
+      // Convert the object to an array of flows
+      const flowArray = Object.entries(flows).map(([name, data]) => ({
+        name: name,
+        id: data.id
+      }));
+
+      if (flowArray.length === 0) {
+        alert('No flows found for the given search string.');
+        return;
+      }
+
+      const flowNames = flowArray.map(flow => flow.name); // Extract flow names
       const selectedFlowName = prompt(`Available Flows:\n${flowNames.join('\n')}\n\nEnter the name of the flow to add:`);
 
-      const selectedFlow = flows.find(flow => flow.name === selectedFlowName);
+      const selectedFlow = flowArray.find(flow => flow.name === selectedFlowName);
       if (selectedFlow) {
         // Add the selected flow to flow_mappings
         flowMappings[selectedFlow.name] = {
