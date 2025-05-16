@@ -8,113 +8,45 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(to bottom, #fff8dc, #f7e7a9);
-      color: #333;
+      margin: 20px;
     }
-
-    header {
-      background-color: #ffd700;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    header img {
-      max-height: 60px;
-      vertical-align: middle;
-    }
-
-    header h1 {
-      display: inline-block;
-      margin: 0;
-      margin-left: 10px;
-      font-size: 24px;
-      color: #333;
-    }
-
-    main {
-      padding: 20px;
-    }
-
     button, input {
       margin: 5px;
       padding: 10px;
       font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      background-color: #ffd700;
-      color: #333;
-      cursor: pointer;
     }
-
-    button:hover {
-      background-color: #ffcc00;
-    }
-
-    input {
-      width: 300px;
-    }
-
     #flowMappings {
       margin-top: 20px;
       border: 1px solid #ccc;
       padding: 10px;
       max-height: 300px;
       overflow-y: auto;
-      background-color: #fff8dc;
-      border-radius: 5px;
     }
-
     .flow {
       margin-bottom: 10px;
       padding: 10px;
       border: 1px solid #ddd;
-      border-radius: 5px;
-      background-color: #fff;
     }
-
     .flow input {
       margin: 5px 0;
-    }
-
-    footer {
-      text-align: center;
-      padding: 10px;
-      background-color: #ffd700;
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      color: #333;
     }
   </style>
 </head>
 <body>
-  <header>
-    <img src="https://stemcom.nl/logo.png" alt="Stemcom Logo">
-    <h1>Flow Mappings Manager</h1>
-  </header>
+  <h1>Flow Mappings Manager</h1>
+  <label for="brokerIp">Broker IP Address:</label>
+  <input type="text" id="brokerIp" placeholder="Enter Broker IP (e.g., 192.168.5.27)">
+  <br>
+  <button id="connectBroker">Connect to Broker</button>
+  <br>
+  <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
+  <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
+  <button id="requestFlows" disabled>Request Flows</button>
 
-  <main>
-    <label for="brokerIp">Broker IP Address:</label>
-    <input type="text" id="brokerIp" placeholder="Enter Broker IP (e.g., 192.168.5.27)">
-    <br>
-    <button id="connectBroker">Connect to Broker</button>
-    <br>
-    <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
-    <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
-    <button id="requestFlows" disabled>Request Flows</button>
-
-    <div id="flowMappings">
-      <h2>Flow Mappings</h2>
-      <div id="flowsContainer"></div>
-    </div>
-  </main>
-
-  <footer>
-    &copy; 2025 Stemcom.nl - All Rights Reserved
-  </footer>
+  <div id="flowMappings">
+    <h2>Flow Mappings</h2>
+    <div id="flowsContainer"></div>
+  </div>
 
   <script>
     let client; // MQTT client
@@ -154,12 +86,12 @@
       client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
         if (topic === 'send_flow_mappings') {
-          flowMappings = payload; // Update the local flowMappings object
-          displayFlowMappings(); // Display the content in the UI
+        flowMappings = payload; // Update the local flowMappings object
+        displayFlowMappings(); // Display the content in the UI
         } else if (topic === 'saved_flow_mappings') {
-          alert(payload.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${payload.error}`);
+        alert(payload.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${payload.error}`);
         } else if (topic === 'send_flows') {
-          displayAvailableFlows(payload);
+        displayAvailableFlows(payload);
         }
       });
     });
@@ -168,7 +100,7 @@
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
       client.publish('request_flow_mappings', ''); // Publish a request to the broker
     });
-
+	
     // Save flow mappings
     document.getElementById('saveFlowMappings').addEventListener('click', () => {
       client.publish('save_flow_mappings', JSON.stringify(flowMappings));
@@ -185,61 +117,61 @@
       container.innerHTML = ''; // Clear the container
 
       for (const [flowName, flowData] of Object.entries(flowMappings)) {
-        const flowDiv = document.createElement('div');
-        flowDiv.className = 'flow';
+      const flowDiv = document.createElement('div');
+      flowDiv.className = 'flow';
 
-        const title = document.createElement('h3');
-        title.textContent = `${flowName} (ID: ${flowData.id})`;
-        flowDiv.appendChild(title);
+      const title = document.createElement('h3');
+      title.textContent = `${flowName} (ID: ${flowData.flow_id})`;
+      flowDiv.appendChild(title);
 
-        const sentencesContainer = document.createElement('div');
-        flowData.sentences.forEach((sentence, index) => {
-          const sentenceDiv = document.createElement('div');
-          sentenceDiv.style.display = 'flex';
-          sentenceDiv.style.alignItems = 'center';
+      const sentencesContainer = document.createElement('div');
+      flowData.sentences.forEach((sentence, index) => {
+        const sentenceDiv = document.createElement('div');
+        sentenceDiv.style.display = 'flex';
+        sentenceDiv.style.alignItems = 'center';
 
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.value = sentence;
-          input.style.flex = '1';
-          input.addEventListener('change', (e) => {
-            flowData.sentences[index] = e.target.value; // Update the sentence
-          });
-
-          const deleteButton = document.createElement('button');
-          deleteButton.textContent = 'Delete';
-          deleteButton.style.marginLeft = '10px';
-          deleteButton.addEventListener('click', () => {
-            flowData.sentences.splice(index, 1); // Remove the sentence
-            displayFlowMappings(); // Refresh the display
-          });
-
-          sentenceDiv.appendChild(input);
-          sentenceDiv.appendChild(deleteButton);
-          sentencesContainer.appendChild(sentenceDiv);
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = sentence;
+        input.style.flex = '1';
+        input.addEventListener('change', (e) => {
+          flowData.sentences[index] = e.target.value; // Update the sentence
         });
 
-        const addSentenceButton = document.createElement('button');
-        addSentenceButton.textContent = 'Add Sentence';
-        addSentenceButton.addEventListener('click', () => {
-          const newSentence = prompt('Enter a new sentence:');
-          if (newSentence) {
-            flowData.sentences.push(newSentence);
-            displayFlowMappings(); // Refresh the display
-          }
-        });
-
-        const deleteFlowButton = document.createElement('button');
-        deleteFlowButton.textContent = 'Delete Flow';
-        deleteFlowButton.addEventListener('click', () => {
-          delete flowMappings[flowName]; // Remove the flow
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.style.marginLeft = '10px';
+        deleteButton.addEventListener('click', () => {
+          flowData.sentences.splice(index, 1); // Remove the sentence
           displayFlowMappings(); // Refresh the display
         });
 
-        flowDiv.appendChild(sentencesContainer);
-        flowDiv.appendChild(addSentenceButton);
-        flowDiv.appendChild(deleteFlowButton);
-        container.appendChild(flowDiv);
+        sentenceDiv.appendChild(input);
+        sentenceDiv.appendChild(deleteButton);
+        sentencesContainer.appendChild(sentenceDiv);
+      });
+
+      const addSentenceButton = document.createElement('button');
+      addSentenceButton.textContent = 'Add Sentence';
+      addSentenceButton.addEventListener('click', () => {
+        const newSentence = prompt('Enter a new sentence:');
+        if (newSentence) {
+        flowData.sentences.push(newSentence);
+        displayFlowMappings(); // Refresh the display
+        }
+      });
+
+      const deleteFlowButton = document.createElement('button');
+      deleteFlowButton.textContent = 'Delete Flow';
+      deleteFlowButton.addEventListener('click', () => {
+        delete flowMappings[flowName]; // Remove the flow
+        displayFlowMappings(); // Refresh the display
+      });
+
+      flowDiv.appendChild(sentencesContainer);
+      flowDiv.appendChild(addSentenceButton);
+      flowDiv.appendChild(deleteFlowButton);
+      container.appendChild(flowDiv);
       }
     }
 
