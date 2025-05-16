@@ -173,6 +173,7 @@ class HomeyFlowSkill(OVOSSkill):
         utterance = message.data.get("utterance", "").lower()
 
         try:
+            # Load the flow_mappings.json file
             with open(self.flow_mapping_path, "r") as f:
                 mappings = json.load(f)
         except Exception as e:
@@ -180,13 +181,20 @@ class HomeyFlowSkill(OVOSSkill):
             self.speak("Er ging iets mis bij het openen van de flow instellingen.")
             return
 
-        flow_info = mappings.get(utterance)
-        if not flow_info or "id" not in flow_info:
+        # Search for the utterance in the sentences of each flow
+        flow_info = None
+        for flow_name, flow_data in mappings.items():
+            if utterance in [sentence.lower() for sentence in flow_data.get("sentences", [])]:
+                flow_info = flow_data
+                flow_info["name"] = flow_name  # Add the flow name to the flow_info
+                break
+
+        if not flow_info or "flow_id" not in flow_info:
             self.speak("Ik weet niet welke flow ik moet starten.")
             self.log.error(f"❌ Geen geldige flow-info voor intentzin: {utterance}")
             return
 
-        flow_id = flow_info["id"]
+        flow_id = flow_info["flow_id"]
         flow_name = flow_info.get("name", "deze flow")
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
