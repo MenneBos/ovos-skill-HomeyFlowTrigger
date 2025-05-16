@@ -11,7 +11,7 @@ async function getFilteredFlows() {
     });
 
     // Get all flows from Homey
-    const flows = await homeyApi.flows.getFlows();
+    const flows = await homeyApi.flow.getFlows();
 
     // Filter flows based on the search string
     const filteredFlows = Object.values(flows).filter(flow =>

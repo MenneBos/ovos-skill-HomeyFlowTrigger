@@ -154,8 +154,14 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             search_string = payload.get("name", "")
             args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/get_flow.js"), search_string]
+            self.log.info("✅ Start the subprocess for Homey API.")
             result = subprocess.run(args, capture_output=True, text=True, check=True)
             flows = json.loads(result.stdout.strip())
+
+            # Check payload size
+            payload_size = len(json.dumps(flows))
+            self.log.info(f"Payload size: {payload_size} bytes")
+
             self.client.publish("send_flows", json.dumps(flows))
             self.log.info("✅ Flows verzonden.")
         except subprocess.CalledProcessError as e:
