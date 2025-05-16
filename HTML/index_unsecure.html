@@ -188,18 +188,53 @@
         return;
       }
 
-      const flowNames = flowArray.map(flow => flow.name); // Extract flow names
-      const selectedFlowName = prompt(`Available Flows:\n${flowNames.join('\n')}\n\nEnter the name of the flow to add:`);
+      // Create a container for the flows
+      const container = document.createElement('div');
+      container.style.maxHeight = '300px';
+      container.style.overflowY = 'auto';
+      container.style.border = '1px solid #ccc';
+      container.style.padding = '10px';
+      container.style.marginTop = '20px';
 
-      const selectedFlow = flowArray.find(flow => flow.name === selectedFlowName);
-      if (selectedFlow) {
-        // Add the selected flow to flow_mappings
-        flowMappings[selectedFlow.name] = {
-          id: selectedFlow.id, // Save the flow ID for triggering
-          sentences: [] // Initialize with an empty sentences array
-        };
-        displayFlowMappings(); // Refresh the flow mappings display
-      }
+      // Add a title
+      const title = document.createElement('h3');
+      title.textContent = 'Available Flows';
+      container.appendChild(title);
+
+      // Add each flow to the container
+      flowArray.forEach(flow => {
+        const flowDiv = document.createElement('div');
+        flowDiv.style.display = 'flex';
+        flowDiv.style.justifyContent = 'space-between';
+        flowDiv.style.alignItems = 'center';
+        flowDiv.style.marginBottom = '10px';
+
+        const flowName = document.createElement('span');
+        flowName.textContent = flow.name;
+        flowName.style.flex = '1';
+
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Add';
+        addButton.style.marginLeft = '10px';
+        addButton.addEventListener('click', () => {
+          // Add the selected flow to flow_mappings
+          flowMappings[flow.name] = {
+            id: flow.id, // Save the flow ID for triggering
+            sentences: [] // Initialize with an empty sentences array
+          };
+          displayFlowMappings(); // Refresh the flow mappings display
+          alert(`Flow "${flow.name}" added to flow mappings.`);
+        });
+
+        flowDiv.appendChild(flowName);
+        flowDiv.appendChild(addButton);
+        container.appendChild(flowDiv);
+      });
+
+      // Add the container to the body or a specific section of the page
+      const flowsContainer = document.getElementById('flowsContainer');
+      flowsContainer.innerHTML = ''; // Clear any previous content
+      flowsContainer.appendChild(container);
     }
   </script>
 </body>
