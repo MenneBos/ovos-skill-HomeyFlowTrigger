@@ -312,6 +312,10 @@ class HomeyFlowSkill(OVOSSkill):
         # Use the intent type (name of the .intent file) as the flow_name
         flow_name = message.data.get("intent_type", "").strip()
 
+        # Sanitize the flow_name to match the keys in flow_mappings.json
+        sanitized_flow_name = flow_name.replace("'", "").replace(" ", "_").lower()
+        self.log.info(f"✅ Flow name is '{sanitized_flow_name}'.")
+
         try:
             # Load the flow_mappings.json file
             with open(self.flow_mapping_path, "r") as f:
@@ -321,25 +325,25 @@ class HomeyFlowSkill(OVOSSkill):
             self.speak("Er ging iets mis bij het openen van de flow instellingen.")
             return
 
-        # Get the flow info directly using the flow_name
-        flow_info = mappings.get(flow_name)
+        # Get the flow info directly using the sanitized flow_name
+        flow_info = mappings.get(sanitized_flow_name)
 
         if not flow_info or "flow_id" not in flow_info:
-            self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
-            self.log.error(f"❌ Geen geldige flow-info voor intent: {flow_name}")
+            self.speak(f"Ik weet niet welke flow ik moet starten voor '{sanitized_flow_name}'.")
+            self.log.error(f"❌ Geen geldige flow-info voor intent: {sanitized_flow_name}")
             return
 
         flow_id = flow_info["flow_id"]
-        self.log.info("✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
+        self.log.info(f"✅ Flow name is '{sanitized_flow_name}' and flow id is '{flow_id}'.")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
-            response = result.stdout.strip() or f"De flow '{flow_name}' is gestart."
+            response = result.stdout.strip() or f"De flow '{sanitized_flow_name}' is gestart."
             self.log.info(f"✅ {response}")
         except subprocess.CalledProcessError as e:
-            response = f"Er ging iets mis bij het starten van '{flow_name}'."
-            self.log.error(f"❌ Fout bij starten van flow '{flow_name}': {e.stderr}")
+            response = f"Er ging iets mis bij het starten van '{sanitized_flow_name}'."
+            self.log.error(f"❌ Fout bij starten van flow '{sanitized_flow_name}': {e.stderr}")
 
         self.speak(response)
