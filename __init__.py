@@ -34,6 +34,18 @@ class HomeyFlowSkill(OVOSSkill):
             no_network_fallback=True,
             no_gui_fallback=True,
         )
+    
+    def on_settings_changed(self):
+        """This method is called when the skill settings are changed."""
+        LOG.info("Settings changed!")
+
+    @property
+    def log_level(self):
+        """Dynamically get the 'log_level' value from the skill settings file.
+        If it doesn't exist, return the default value.
+        This will reflect live changes to settings.json files (local or from backend)
+        """
+        return self.settings.get("log_level", "INFO")   
 
     def initialize(self):
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
@@ -96,10 +108,6 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Error registering intents: {e}")
 
-    def on_settings_changed(self):
-        """This method is called when the skill settings are changed."""
-        LOG.info("Settings changed!")
-
     def restart_ovos_service():
         try:
             subprocess.run(["systemctl", "restart", "ovos"], check=True)
@@ -108,14 +116,6 @@ class HomeyFlowSkill(OVOSSkill):
             print(f"❌ Failed to restart OVOS service: {e}")
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
-
-    @property
-    def log_level(self):
-        """Dynamically get the 'log_level' value from the skill settings file.
-        If it doesn't exist, return the default value.
-        This will reflect live changes to settings.json files (local or from backend)
-        """
-        return self.settings.get("log_level", "INFO")   
 
     def _setup_mqtt(self):
         self.client = mqtt.Client()
@@ -309,13 +309,17 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Onverwachte fout bij het herstarten van de OVOS-service: {e}")
 
     def handle_start_flow(self, message):
-        # Use the intent type (name of the .intent file) as the flow_name
-        flow_name = message.data.get("intent_type", "").strip()
+        # Log the entire message data for debugging
         self.log.info(f"✅ Received message data: {message.data}")
 
-        # Sanitize the flow_name to match the keys in flow_mappings.json
-        sanitized_flow_name = flow_name.replace("'", "").replace(" ", "_").lower()
-        self.log.info(f"✅ Flow name is '{sanitized_flow_name}'.")
+        # Extract the utterance from the message
+        utterance = message.data.get("utterance", "").strip().lower()
+
+        # Fallback to the first item in 'utterances' if 'utterance' is empty
+        if not utterance and "utterances" in message.data and message.data["utterances"]:
+            utterance = message.data["utterances"][0].strip().lower()
+
+        self.log.info(f"✅ Selected utterance: '{utterance}'")
 
         try:
             # Load the flow_mappings.json file
@@ -326,25 +330,36 @@ class HomeyFlowSkill(OVOSSkill):
             self.speak("Er ging iets mis bij het openen van de flow instellingen.")
             return
 
-        # Get the flow info directly using the sanitized flow_name
-        flow_info = mappings.get(sanitized_flow_name)
+        # Find the flow name by matching the utterance with sentences in flow_mappings.json
+        flow_name = None
+        for key, flow_data in mappings.items():
+            if utterance in [sentence.lower() for sentence in flow_data.get("sentences", [])]:
+                flow_name = key
+                break
 
-        if not flow_info or "flow_id" not in flow_info:
-            self.speak(f"Ik weet niet welke flow ik moet starten voor '{sanitized_flow_name}'.")
-            self.log.error(f"❌ Geen geldige flow-info voor intent: {sanitized_flow_name}")
+        if not flow_name:
+            self.speak(f"Ik weet niet welke flow ik moet starten voor '{utterance}'.")
+            self.log.error(f"❌ Geen geldige flow-info voor utterance: '{utterance}'")
             return
 
-        flow_id = flow_info["flow_id"]
-        self.log.info(f"✅ Flow name is '{sanitized_flow_name}' and flow id is '{flow_id}'.")
+        flow_info = mappings[flow_name]
+        flow_id = flow_info.get("flow_id")
+        if not flow_id:
+            self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
+            self.log.error(f"❌ Geen flow_id gevonden voor flow: '{flow_name}'")
+            return
+
+        self.log.info(f"✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
+
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
-            response = result.stdout.strip() or f"De flow '{sanitized_flow_name}' is gestart."
+            response = result.stdout.strip() or f"De flow '{flow_name}' is gestart."
             self.log.info(f"✅ {response}")
         except subprocess.CalledProcessError as e:
-            response = f"Er ging iets mis bij het starten van '{sanitized_flow_name}'."
-            self.log.error(f"❌ Fout bij starten van flow '{sanitized_flow_name}': {e.stderr}")
+            response = f"Er ging iets mis bij het starten van '{flow_name}'."
+            self.log.error(f"❌ Fout bij starten van flow '{flow_name}': {e.stderr}")
 
         self.speak(response)
