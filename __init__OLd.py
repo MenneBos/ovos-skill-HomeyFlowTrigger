@@ -49,35 +49,53 @@ class HomeyFlowSkill(OVOSSkill):
         """
         return self.settings.get("log_level", "INFO")   
 
-    def handle_start_flow(self, message):
-        # Haal de intentnaam op uit het ontvangen bericht
-        utterance = message.data.get("utterance", "").lower()
+def handle_start_flow(self, message):
+    # Log the entire message data for debugging
+    self.log.info(f"✅ Received message data: {message.data}")
 
-        try:
-            with open(self.flow_mapping_path, "r") as f:
-                mappings = json.load(f)
-        except Exception as e:
-            self.log.error(f"❌ Kan flow_mappings.json niet laden: {e}")
-            self.speak("Er ging iets mis bij het openen van de flow instellingen.")
-            return
+    # Extract the utterance from the message
+    utterance = message.data.get("utterance", "").strip().lower()
+    self.log.info(f"✅ Received utterance: '{utterance}'")
 
-        flow_info = mappings.get(utterance)
-        if not flow_info or "id" not in flow_info:
-            self.speak("Ik weet niet welke flow ik moet starten.")
-            self.log.error(f"❌ Geen geldige flow-info voor intentzin: {utterance}")
-            return
-        
-        flow_id = flow_info["id"]
-        flow_name = flow_info.get("name", "deze flow")
+    try:
+        # Load the flow_mappings.json file
+        with open(self.flow_mapping_path, "r") as f:
+            mappings = json.load(f)
+    except Exception as e:
+        self.log.error(f"❌ Kan flow_mappings.json niet laden: {e}")
+        self.speak("Er ging iets mis bij het openen van de flow instellingen.")
+        return
 
-        # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
+    # Find the flow name by matching the utterance with sentences in flow_mappings.json
+    flow_name = None
+    for key, flow_data in mappings.items():
+        if utterance in [sentence.lower() for sentence in flow_data.get("sentences", [])]:
+            flow_name = key
+            break
 
-        try:
-            result = subprocess.run(args, capture_output=True, text=True, check=True)
-            response = result.stdout.strip() or "  De flow trigger is gestart, maar gaf geen antwoord terug."
-        except subprocess.CalledProcessError as e:
-            response = " ❌ Er ging iets mis bij het starten van de flow."
-            self.log.error(f"❌ Fout bij starten van flow-id {e.stderr}")
+    if not flow_name:
+        self.speak(f"Ik weet niet welke flow ik moet starten voor '{utterance}'.")
+        self.log.error(f"❌ Geen geldige flow-info voor utterance: '{utterance}'")
+        return
 
-        self.speak(response)
+    flow_info = mappings[flow_name]
+    flow_id = flow_info.get("flow_id")
+    if not flow_id:
+        self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
+        self.log.error(f"❌ Geen flow_id gevonden voor flow: '{flow_name}'")
+        return
+
+    self.log.info(f"✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
+
+    # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
+    args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
+
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, check=True)
+        response = result.stdout.strip() or f"De flow '{flow_name}' is gestart."
+        self.log.info(f"✅ {response}")
+    except subprocess.CalledProcessError as e:
+        response = f"Er ging iets mis bij het starten van '{flow_name}'."
+        self.log.error(f"❌ Fout bij starten van flow '{flow_name}': {e.stderr}")
+
+    self.speak(response)
