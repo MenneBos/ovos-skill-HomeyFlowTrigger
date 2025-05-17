@@ -1,1 +1,7 @@
-.env
+HTML/test_mqtt_hivemq.html
+*.sh
+*.crt
+*.key
+*.srl
+*.csr
+nodejs/config.json
