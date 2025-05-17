@@ -167,6 +167,9 @@
     // Request flow mappings when the button is clicked
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
       client.publish('request_flow_mappings', ''); // Publish a request to the broker
+
+      // Display a message to the user
+      alert('De wijzigingen zijn opgeslagen. De OVOS-service wordt opnieuw gestart om het AI model opnieuw te trainen.');
     });
 
     // Save flow mappings

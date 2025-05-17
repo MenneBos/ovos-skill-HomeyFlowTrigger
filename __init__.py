@@ -37,13 +37,41 @@ class HomeyFlowSkill(OVOSSkill):
 
     def initialize(self):
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
-        self.intent_file_path = os.path.join(self.root_dir, "HomeyFlow.intent")
+        self.intent_dir = os.path.join(self.root_dir, "locale", "nl-NL", "intent")
+        #self.intent_file_path = os.path.join(self.root_dir, "HomeyFlow.intent")
         self.register_intent("HomeyFlow.intent", self.handle_start_flow)
         self._setup_mqtt()
+
+        # Register all .intent files
+        self.register_all_intents()
+
+    def register_all_intents(self):
+        """Register all .intent files in the intent directory."""
+        try:
+            if not os.path.exists(self.intent_dir):
+                self.log.warning(f"⚠️ Intent directory '{self.intent_dir}' does not exist.")
+                return
+
+            for intent_file in os.listdir(self.intent_dir):
+                if intent_file.endswith(".intent"):
+                    intent_name = os.path.splitext(intent_file)[0]  # Remove the .intent extension
+                    self.register_intent(intent_file, self.handle_start_flow)
+                    self.log.info(f"✅ Intent '{intent_name}' registered.")
+        except Exception as e:
+            self.log.error(f"❌ Error registering intents: {e}")
 
     def on_settings_changed(self):
         """This method is called when the skill settings are changed."""
         LOG.info("Settings changed!")
+
+    def restart_ovos_service():
+        try:
+            subprocess.run(["systemctl", "restart", "ovos"], check=True)
+            print("✅ OVOS service restarted successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to restart OVOS service: {e}")
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
 
     @property
     def log_level(self):
@@ -136,16 +164,14 @@ class HomeyFlowSkill(OVOSSkill):
             with open(self.flow_mapping_path, "w") as f:
                 json.dump(payload, f, indent=2)
 
-            # Overwrite the HomeyFlow.intent file
-            utterances = []
-            for flow in payload.values():
-                utterances.extend(flow.get("sentences", []))
-            os.makedirs(os.path.dirname(self.intent_file_path), exist_ok=True)
-            with open(self.intent_file_path, "w") as intent_file:
-                intent_file.write("\n".join(utterances))
+            # Update .intent files
+            self.update_intent_files(payload)
+
+            # Restart OVOS service to retrain Padatious
+            self.restart_ovos_service()
 
             self.client.publish("saved_flow_mappings", json.dumps({"status": "success"}))
-            self.log.info("✅ Flow mappings opgeslagen.")
+            self.log.info("✅ Flow mappings opgeslagen en intent-bestanden bijgewerkt.")
         except Exception as e:
             self.client.publish("saved_flow_mappings", json.dumps({"status": "failure", "error": str(e)}))
             self.log.error(f"❌ Fout bij het opslaan van flow mappings: {e}")
@@ -168,6 +194,69 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Fout bij ophalen van flows: {e.stderr}")
         except Exception as e:
             self.log.error(f"❌ Fout bij verwerken van flows: {e}") 
+
+    def update_intent_files(self, mappings):
+        """Update .intent files based on the current flow mappings."""
+        try:
+            # Ensure the intent directory exists
+            os.makedirs(self.intent_dir, exist_ok=True)
+
+            # Get the current list of .intent files
+            existing_intent_files = set(os.listdir(self.intent_dir))
+
+            # Track the intent files that should exist
+            required_intent_files = set()
+
+            for flow_name, flow_data in mappings.items():
+                intent_file_name = f"{flow_name}.intent"
+                required_intent_files.add(intent_file_name)
+
+                # Write or update the .intent file
+                self.create_intent_file(flow_name, flow_data.get("sentences", []))
+
+            # Delete .intent files that are no longer needed
+            for intent_file in existing_intent_files - required_intent_files:
+                flow_name = os.path.splitext(intent_file)[0]
+                self.delete_intent_file(flow_name)
+
+        except Exception as e:
+            self.log.error(f"❌ Fout bij het bijwerken van intent-bestanden: {e}")
+
+    def create_intent_file(self, flow_name, sentences):
+        """Maak een .intent-bestand aan voor de gegeven flow."""
+        try:
+            os.makedirs(self.intent_dir, exist_ok=True)
+            intent_file_path = os.path.join(self.intent_dir, f"{flow_name}.intent")
+
+            with open(intent_file_path, "w") as f:
+                for sentence in sentences:
+                    f.write(sentence + "\n")
+
+            self.log.info(f"✅ .intent-bestand aangemaakt voor flow: {flow_name}")
+        except Exception as e:
+            self.log.error(f"❌ Fout bij het aanmaken van .intent-bestand voor flow '{flow_name}': {e}")
+
+    def delete_intent_file(self, flow_name):
+        """Verwijder het .intent-bestand voor de gegeven flow."""
+        try:
+            intent_file_path = os.path.join(self.intent_dir, f"{flow_name}.intent")
+            if os.path.exists(intent_file_path):
+                os.remove(intent_file_path)
+                self.log.info(f"✅ .intent-bestand verwijderd voor flow: {flow_name}")
+            else:
+                self.log.warning(f"⚠️ .intent-bestand voor flow '{flow_name}' niet gevonden.")
+        except Exception as e:
+            self.log.error(f"❌ Fout bij het verwijderen van .intent-bestand voor flow '{flow_name}': {e}")
+
+    def restart_ovos_service(self):
+        """Restart the OVOS service to retrain Padatious."""
+        try:
+            subprocess.run(["systemctl", "restart", "ovos"], check=True)
+            self.log.info("✅ OVOS service succesvol herstart.")
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"❌ Fout bij het herstarten van de OVOS-service: {e}")
+        except Exception as e:
+            self.log.error(f"❌ Onverwachte fout bij het herstarten van de OVOS-service: {e}")
 
     def handle_start_flow(self, message):
         utterance = message.data.get("utterance", "").lower()
