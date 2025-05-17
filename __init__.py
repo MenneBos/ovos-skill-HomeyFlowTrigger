@@ -309,9 +309,6 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Onverwachte fout bij het herstarten van de OVOS-service: {e}")
 
     def handle_start_flow(self, message):
-        # Log the entire message data for debugging
-        self.log.info(f"✅ Received message data: {message.data}")
-
         # Extract the utterance from the message
         utterance = message.data.get("utterance", "").strip().lower()
 
@@ -355,8 +352,6 @@ class HomeyFlowSkill(OVOSSkill):
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
             self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
-
-        self.log.info(f"✅ Closest sentence: '{closest_sentence}', Flow name: '{flow_name}', Flow ID: '{flow_id}'.")
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
