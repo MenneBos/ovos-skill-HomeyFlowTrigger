@@ -187,6 +187,9 @@
       const container = document.getElementById('flowsContainer');
       container.innerHTML = ''; // Clear the container
 
+      container.style.maxHeight = '600px'; // Adjust the height as needed
+      container.style.overflowY = 'auto';
+
       for (const [flowName, flowData] of Object.entries(flowMappings)) {
         const flowDiv = document.createElement('div');
         flowDiv.className = 'flow';
@@ -261,7 +264,7 @@
 
       // Create a container for the flows
       const container = document.createElement('div');
-      container.style.maxHeight = '300px';
+      container.style.maxHeight = '600px';
       container.style.overflowY = 'auto';
       container.style.border = '1px solid #ccc';
       container.style.padding = '10px';
