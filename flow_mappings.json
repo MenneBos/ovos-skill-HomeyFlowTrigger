@@ -1,10 +1,10 @@
 {
-    "Kantoor Check out": {
+    "kantoor_check_out": {
       "flow_id": "fdf1522a-775e-498a-89c4-7407e93db6a5",
       "sentences": ["afwezig in kantoor", "weg in kantoor"],
       "favorite_flow": "yes"
     },
-    "Kantoor Check in": {
+    "kantoor_check_in": {
       "flow_id": "30386fd1-a1ab-4e31-a822-81d514089275",
       "sentences": ["aanwezig in kantoor", "terug in kantoor"],
       "favorite_flow": "yes"

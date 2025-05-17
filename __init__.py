@@ -323,13 +323,14 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Get the flow info directly using the flow_name
         flow_info = mappings.get(flow_name)
+
         if not flow_info or "flow_id" not in flow_info:
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
             self.log.error(f"❌ Geen geldige flow-info voor intent: {flow_name}")
             return
 
         flow_id = flow_info["flow_id"]
-
+        self.log.info("✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
