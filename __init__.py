@@ -311,6 +311,7 @@ class HomeyFlowSkill(OVOSSkill):
     def handle_start_flow(self, message):
         # Use the intent type (name of the .intent file) as the flow_name
         flow_name = message.data.get("intent_type", "").strip()
+        self.log.info(f"✅ Received message data: {message.data}")
 
         # Sanitize the flow_name to match the keys in flow_mappings.json
         sanitized_flow_name = flow_name.replace("'", "").replace(" ", "_").lower()
