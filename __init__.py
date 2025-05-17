@@ -42,8 +42,44 @@ class HomeyFlowSkill(OVOSSkill):
         self.register_intent("HomeyFlow.intent", self.handle_start_flow)
         self._setup_mqtt()
 
+        # Remove all existing .intent files
+        self.clear_intent_files()
+
+        # Recreate .intent files based on flow_mappings.json
+        self.recreate_intent_files()
+
         # Register all .intent files
         self.register_all_intents()
+
+    def clear_intent_files(self):
+        """Remove all existing .intent files in the intent directory."""
+        try:
+            if os.path.exists(self.intent_dir):
+                for intent_file in os.listdir(self.intent_dir):
+                    if intent_file.endswith(".intent"):
+                        intent_file_path = os.path.join(self.intent_dir, intent_file)
+                        os.remove(intent_file_path)
+                        self.log.info(f"✅ Verwijderd .intent-bestand: {intent_file}")
+            else:
+                self.log.warning(f"⚠️ Intent directory '{self.intent_dir}' bestaat niet.")
+        except Exception as e:
+            self.log.error(f"❌ Fout bij het verwijderen van .intent-bestanden: {e}")
+
+    def recreate_intent_files(self):
+        """Recreate .intent files based on the current flow_mappings.json."""
+        try:
+            # Load the flow_mappings.json file
+            if os.path.exists(self.flow_mapping_path):
+                with open(self.flow_mapping_path, "r") as f:
+                    mappings = json.load(f)
+
+                # Create .intent files for each flow
+                for flow_name, flow_data in mappings.items():
+                    self.create_intent_file(flow_name, flow_data.get("sentences", []))
+            else:
+                self.log.warning(f"⚠️ Flow mappings file '{self.flow_mapping_path}' bestaat niet.")
+        except Exception as e:
+            self.log.error(f"❌ Fout bij het opnieuw aanmaken van .intent-bestanden: {e}")
 
     def register_all_intents(self):
         """Register all .intent files in the intent directory."""
