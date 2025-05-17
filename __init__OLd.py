@@ -55,6 +55,10 @@ def handle_start_flow(self, message):
 
     # Extract the utterance from the message
     utterance = message.data.get("utterance", "").strip().lower()
+
+    if not utterance and "utterances" in message.data and message.data["utterances"]:
+        utterance = message.data["utterances"][0].strip().lower()
+
     self.log.info(f"✅ Received utterance: '{utterance}'")
 
     try:
@@ -72,6 +76,7 @@ def handle_start_flow(self, message):
         if utterance in [sentence.lower() for sentence in flow_data.get("sentences", [])]:
             flow_name = key
             break
+    self.log.info(f"✅ Flow name is '{flow_name}'.")
 
     if not flow_name:
         self.speak(f"Ik weet niet welke flow ik moet starten voor '{utterance}'.")
@@ -85,7 +90,7 @@ def handle_start_flow(self, message):
         self.log.error(f"❌ Geen flow_id gevonden voor flow: '{flow_name}'")
         return
 
-    self.log.info(f"✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
+
 
     # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
     args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
