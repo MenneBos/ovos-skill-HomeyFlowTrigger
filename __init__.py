@@ -343,10 +343,10 @@ class HomeyFlowSkill(OVOSSkill):
             return
 
         flow_info = mappings[flow_name]
-        flow_id = flow_info.get("flow_id")
+        flow_id = flow_info.get("id")
         if not flow_id:
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
-            self.log.error(f"❌ Geen flow_id gevonden voor flow: '{flow_name}'")
+            self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
 
         self.log.info(f"✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
