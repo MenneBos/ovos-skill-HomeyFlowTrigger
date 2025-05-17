@@ -77,7 +77,7 @@ setup(
     author_email='your.email@example.com',
     license='Apache-2.0',
     install_requires=[
-        "paho-mqtt",
+        "paho-mqtt", "difflib"
     ],
     include_package_data=True,
     package_dir={SKILL_PKG: ""},

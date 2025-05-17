@@ -8,7 +8,7 @@ import subprocess
 import os
 import json
 import paho.mqtt.client as mqtt
-import crypt  # For password hashing comparison
+from difflib import get_close_matches
 
 DEFAULT_SETTINGS = {
     "log_level": "INFO"
@@ -330,26 +330,33 @@ class HomeyFlowSkill(OVOSSkill):
             self.speak("Er ging iets mis bij het openen van de flow instellingen.")
             return
 
-        # Find the flow name by matching the utterance with sentences in flow_mappings.json
-        flow_name = None
-        for key, flow_data in mappings.items():
-            if utterance in [sentence.lower() for sentence in flow_data.get("sentences", [])]:
-                flow_name = key
-                break
+        # Flatten the sentences in flow_mappings.json for fuzzy matching
+        sentence_to_flow = {}
+        for flow_name, flow_data in mappings.items():
+            for sentence in flow_data.get("sentences", []):
+                sentence_to_flow[sentence.lower()] = flow_name
 
-        if not flow_name:
+        # Use fuzzy matching to find the closest sentence
+        all_sentences = list(sentence_to_flow.keys())
+        closest_matches = get_close_matches(utterance, all_sentences, n=1, cutoff=0.6)
+
+        if not closest_matches:
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{utterance}'.")
-            self.log.error(f"❌ Geen geldige flow-info voor utterance: '{utterance}'")
+            self.log.error(f"❌ Geen overeenkomende zin gevonden voor utterance: '{utterance}'")
             return
 
+        # Get the flow name from the closest matching sentence
+        closest_sentence = closest_matches[0]
+        flow_name = sentence_to_flow[closest_sentence]
         flow_info = mappings[flow_name]
+
         flow_id = flow_info.get("id")
         if not flow_id:
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
             self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
 
-        self.log.info(f"✅ Flow name is '{flow_name}' and flow id is '{flow_id}'.")
+        self.log.info(f"✅ Closest sentence: '{closest_sentence}', Flow name: '{flow_name}', Flow ID: '{flow_id}'.")
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
