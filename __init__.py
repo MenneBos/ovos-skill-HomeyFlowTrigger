@@ -223,16 +223,23 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Fout bij het bijwerken van intent-bestanden: {e}")
 
     def create_intent_file(self, flow_name, sentences):
-        """Maak een .intent-bestand aan voor de gegeven flow."""
+        """Create or update a .intent file for the given flow."""
         try:
-            os.makedirs(self.intent_dir, exist_ok=True)
-            intent_file_path = os.path.join(self.intent_dir, f"{flow_name}.intent")
+            # Sanitize the flow_name to remove unwanted characters
+            sanitized_flow_name = flow_name.replace("'", "").replace(" ", "_")
 
+            # Ensure the intent directory exists
+            os.makedirs(self.intent_dir, exist_ok=True)
+
+            # Define the path for the .intent file
+            intent_file_path = os.path.join(self.intent_dir, f"{sanitized_flow_name}.intent")
+
+            # Write the sentences to the .intent file
             with open(intent_file_path, "w") as f:
                 for sentence in sentences:
                     f.write(sentence + "\n")
 
-            self.log.info(f"✅ .intent-bestand aangemaakt voor flow: {flow_name}")
+            self.log.info(f"✅ .intent-bestand aangemaakt voor flow: {sanitized_flow_name}")
         except Exception as e:
             self.log.error(f"❌ Fout bij het aanmaken van .intent-bestand voor flow '{flow_name}': {e}")
 
@@ -251,7 +258,7 @@ class HomeyFlowSkill(OVOSSkill):
     def restart_ovos_service(self):
         """Restart the OVOS service to retrain Padatious."""
         try:
-            subprocess.run(["systemctl", "restart", "ovos"], check=True)
+            subprocess.run(["systemctl", "--user", "restart", "ovos.service"], check=True)
             self.log.info("✅ OVOS service succesvol herstart.")
         except subprocess.CalledProcessError as e:
             self.log.error(f"❌ Fout bij het herstarten van de OVOS-service: {e}")
