@@ -216,6 +216,7 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             topic = msg.topic
             payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
+            self.log.info("✅ MQTT topic {topoc} and payload {payload} en message {msg}")
             if payload:  # Check if the payload is not empty
                 payload = json.loads(payload)
             else:
