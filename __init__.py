@@ -23,16 +23,10 @@ class HomeyFlowSkill(OVOSSkill):
         self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
         self.config = self._load_config()
 
-        # Extract broker_url
-        self.broker_url = self.config.get("broker", {}).get("url")
-        if not self.broker_url:
-            self.log.error("❌ broker_url is missing in config.json")
-        else:
-            self.log.info(f"✅ broker_url loaded: {self.broker_url}")
-
         # Extract values from the configuration
         self.homey_address = self.config["homey"]["address"]
         self.homey_token = self.config["homey"]["token"]
+        self.broker_url = self.config.get("broker", {}).get("url")
         self.broker_login = self.config.get("broker", {}).get("login", "")
         self.broker_password = self.config.get("broker", {}).get("password", "")
         self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
@@ -157,6 +151,7 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             # MQTT broker details
             BROKER = self.broker_url
+            self.log.error(f"✅ Show the BROKER URL {BROKER}")
             PORT = 8884  # WebSocket secure port
             USERNAME = self.broker_login
             PASSWORD = self.broker_password
