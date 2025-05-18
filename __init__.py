@@ -272,10 +272,15 @@ class HomeyFlowSkill(OVOSSkill):
 
     def _request_flows(self, payload):
         try:
+
+            args = ["node", self.nodejs_start_flow, flow_id]
+            script_dir = os.path.dirname(self.nodejs_start_flow)  # Get the directory of the script
+
             search_string = payload.get("name", "")
-            args = ["node", self.nodejs_get_flow, search_string]
+            result = subprocess.run(args, cwd=script_dir, capture_output=True, text=True, check=True)
+            #args = ["node", self.nodejs_get_flow, search_string]
             self.log.info("✅ Start the subprocess for Homey API.")
-            result = subprocess.run(args, capture_output=True, text=True, check=True)
+            #result = subprocess.run(args, capture_output=True, text=True, check=True)
             flows = json.loads(result.stdout.strip())
 
             # Check payload size
@@ -407,7 +412,6 @@ class HomeyFlowSkill(OVOSSkill):
         self.log.info(f"✅ Het pad naar start_Flow.js is {self.nodejs_start_flow}")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
-
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
