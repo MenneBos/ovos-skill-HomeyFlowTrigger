@@ -212,7 +212,7 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Error setting up MQTT client: {e}")   
 
-    def _on_mqtt_message(client, userdata, msg):
+    def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
             payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace

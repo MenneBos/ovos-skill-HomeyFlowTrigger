@@ -184,7 +184,6 @@
     // Request flow mappings when the button is clicked
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
-        alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
 
@@ -192,13 +191,11 @@
       const message = new Paho.MQTT.Message("");
       message.destinationName = "request_flow_mappings"; // Topic to publish to
       client.send(message); // Publish the message
-      alert("Message published: request_flow_mappings");
     });
 
     // Save flow mappings
     document.getElementById('saveFlowMappings').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
-        alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
 
@@ -213,7 +210,6 @@
     // Request flows
     document.getElementById('requestFlows').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
-        alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
 
@@ -222,7 +218,6 @@
       const message = new Paho.MQTT.Message(payload);
       message.destinationName = "request_flows"; // Topic to publish to
       client.send(message); // Publish the message
-      alert("Message published: request_flows");
     });
   
     function displayFlowMappings() {
