@@ -170,6 +170,9 @@ class HomeyFlowSkill(OVOSSkill):
                 if rc == 0:
                     self.log.info("✅ Connected to HiveMQ broker")
                     client.subscribe(TOPIC)
+                    client.subscribe("request_flow_mappings")
+                    client.subscribe("save_flow_mappings")
+                    client.subscribe("request_flows")
                 else:
                     self.log.error(f"❌ Failed to connect to broker, return code {rc}")
 
@@ -194,9 +197,6 @@ class HomeyFlowSkill(OVOSSkill):
             self.client = mqtt.Client(transport="websockets")
             self.client.username_pw_set(USERNAME, PASSWORD)
             self.client.tls_set()  # Enable TLS
-            self.client.subscribe("request_flow_mappings")
-            self.client.subscribe("save_flow_mappings")
-            self.client.subscribe("request_flows")
 
             # Assign callbacks
             self.client.on_connect = on_connect
@@ -216,7 +216,7 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             topic = msg.topic
             payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
-            self.log.info("✅ MQTT topic {topoc} and payload {payload} en message {msg}")
+            self.log.info("✅ MQTT topic {topic} and payload {payload} en message {msg}")
             if payload:  # Check if the payload is not empty
                 payload = json.loads(payload)
             else:
