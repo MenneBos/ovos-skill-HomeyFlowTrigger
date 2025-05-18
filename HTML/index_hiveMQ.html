@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MQTT Web Client</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to bottom, #fff8dc, #f7e7a9);
+      color: #333;
+    }
+
+    header {
+      background-color: #ffd700;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    header img {
+      max-height: 60px;
+      vertical-align: middle;
+    }
+
+    header h1 {
+      display: inline-block;
+      margin: 0;
+      margin-left: 10px;
+      font-size: 24px;
+      color: #333;
+    }
+
+    main {
+      padding: 20px;
+    }
+
+    button, input {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #ffd700;
+      color: #333;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #ffcc00;
+    }
+
+    input {
+      width: 300px;
+    }
+
+    #flowMappings {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      background-color: #fff8dc;
+      border-radius: 5px;
+    }
+
+    .flow {
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+
+    .flow input {
+      margin: 5px 0;
+    }
+
+    footer {
+      text-align: center;
+      padding: 10px;
+      background-color: #ffd700;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="Stemcom Logo">
+    <h1>Flow Mappings Manager</h1>
+  </header>
+
+  <main>
+    <label for="brokerIp">HiveMQ Broker URL:</label>
+    <input type="text" id="brokerIp" placeholder="Enter Broker URL (e.g., wss://your-broker-url:8884/mqtt)">
+    <br>
+    <button id="connectBroker">Connect to HiveMQ Broker</button>
+    <br>
+    <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
+    <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
+    <button id="requestFlows" disabled>Request Flows</button>
+
+    <div id="flowMappings">
+      <h2>Flow Mappings</h2>
+      <div id="flowsContainer"></div>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2025 Stemcom.nl - All Rights Reserved
+  </footer>
+
+  <script>
+    let client; // MQTT client
+    let flowMappings = {}; // Local copy of flow_mappings.json
+
+    // Load configuration from config.json
+    fetch('config.json')
+      .then(response => response.json())
+      .then(config => {
+        const brokerUrl = config.broker.url;
+        const username = config.broker.login;
+        const password = config.broker.password;
+
+        // Connect to the HiveMQ broker
+        document.getElementById('connectBroker').addEventListener('click', () => {
+          if (!brokerUrl) {
+            alert('Broker URL is missing in config.json.');
+            return;
+          }
+
+          // Connect to the HiveMQ broker using WebSocket Secure
+          client = new Paho.MQTT.Client(brokerUrl, "web-client-" + Math.random());
+
+          client.onConnectionLost = (responseObject) => {
+            console.error('Connection lost:', responseObject.errorMessage);
+            alert('Connection lost: ' + responseObject.errorMessage);
+          };
+
+          client.onMessageArrived = (message) => {
+            const topic = message.destinationName;
+            const payload = message.payloadString;
+            console.log(`Received message on topic ${topic}: ${payload}`);
+
+            if (topic === 'send_flow_mappings') {
+              flowMappings = JSON.parse(payload); // Update the local flowMappings object
+              displayFlowMappings(); // Display the content in the UI
+            } else if (topic === 'saved_flow_mappings') {
+              const response = JSON.parse(payload);
+              alert(response.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${response.error}`);
+            } else if (topic === 'send_flows') {
+              displayAvailableFlows(JSON.parse(payload));
+            }
+          };
+
+          client.connect({
+            onSuccess: () => {
+              console.log('Connected to HiveMQ broker');
+              alert('Connected to HiveMQ broker');
+              client.subscribe('send_flow_mappings');
+              client.subscribe('saved_flow_mappings');
+              client.subscribe('send_flows');
+
+              // Enable buttons after successful connection
+              document.getElementById('requestFlowMappings').disabled = false;
+              document.getElementById('saveFlowMappings').disabled = false;
+              document.getElementById('requestFlows').disabled = false;
+            },
+            userName: username,
+            password: password,
+            useSSL: true
+          });
+        });
+      })
+      .catch(error => {
+        console.error('Failed to load config.json:', error);
+        alert('Failed to load configuration. Please check config.json.');
+      });
+
+    // Request flow mappings when the button is clicked
+    document.getElementById('requestFlowMappings').addEventListener('click', () => {
+      client.publish('request_flow_mappings', ''); // Publish a request to the broker
+    });
+
+    // Save flow mappings
+    document.getElementById('saveFlowMappings').addEventListener('click', () => {
+      client.publish('save_flow_mappings', JSON.stringify(flowMappings));
+      alert('Flow mappings have been saved.');
+    });
+
+    // Request flows
+    document.getElementById('requestFlows').addEventListener('click', () => {
+      const searchString = prompt('Enter a search string for flows:');
+      client.publish('request_flows', JSON.stringify({ name: searchString }));
+    });
+
+    function displayFlowMappings() {
+      const container = document.getElementById('flowsContainer');
+      container.innerHTML = ''; // Clear the container
+
+      for (const [flowName, flowData] of Object.entries(flowMappings)) {
+        const flowDiv = document.createElement('div');
+        flowDiv.className = 'flow';
+
+        const title = document.createElement('h3');
+        title.textContent = `${flowName} (ID: ${flowData.id})`;
+        flowDiv.appendChild(title);
+
+        const sentencesContainer = document.createElement('div');
+        flowData.sentences.forEach((sentence, index) => {
+          const sentenceDiv = document.createElement('div');
+          sentenceDiv.style.display = 'flex';
+          sentenceDiv.style.alignItems = 'center';
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = sentence;
+          input.style.flex = '1';
+          input.addEventListener('change', (e) => {
+            flowData.sentences[index] = e.target.value; // Update the sentence
+          });
+
+          const deleteButton = document.createElement('button');
+          deleteButton.textContent = 'Delete';
+          deleteButton.style.marginLeft = '10px';
+          deleteButton.addEventListener('click', () => {
+            flowData.sentences.splice(index, 1); // Remove the sentence
+            displayFlowMappings(); // Refresh the display
+          });
+
+          sentenceDiv.appendChild(input);
+          sentenceDiv.appendChild(deleteButton);
+          sentencesContainer.appendChild(sentenceDiv);
+        });
+
+        const addSentenceButton = document.createElement('button');
+        addSentenceButton.textContent = 'Add Sentence';
+        addSentenceButton.addEventListener('click', () => {
+          const newSentence = prompt('Enter a new sentence:');
+          if (newSentence) {
+            flowData.sentences.push(newSentence);
+            displayFlowMappings(); // Refresh the display
+          }
+        });
+
+        const deleteFlowButton = document.createElement('button');
+        deleteFlowButton.textContent = 'Delete Flow';
+        deleteFlowButton.addEventListener('click', () => {
+          delete flowMappings[flowName]; // Remove the flow
+          displayFlowMappings(); // Refresh the display
+        });
+
+        flowDiv.appendChild(sentencesContainer);
+        flowDiv.appendChild(addSentenceButton);
+        flowDiv.appendChild(deleteFlowButton);
+        container.appendChild(flowDiv);
+      }
+    }
+
+    function displayAvailableFlows(flows) {
+      const container = document.getElementById('flowsContainer');
+      container.innerHTML = ''; // Clear the container
+
+      for (const [flowName, flowData] of Object.entries(flows)) {
+        const flowDiv = document.createElement('div');
+        flowDiv.className = 'flow';
+
+        const title = document.createElement('h3');
+        title.textContent = `${flowName} (ID: ${flowData.id})`;
+        flowDiv.appendChild(title);
+
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Add';
+        addButton.addEventListener('click', () => {
+          flowMappings[flowName] = {
+            id: flowData.id,
+            sentences: []
+          };
+          displayFlowMappings(); // Refresh the display
+        });
+
+        flowDiv.appendChild(addButton);
+        container.appendChild(flowDiv);
+      }
+    }
+  </script>
+</body>
+</html>

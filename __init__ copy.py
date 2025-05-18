@@ -14,32 +14,17 @@ DEFAULT_SETTINGS = {
     "log_level": "INFO"
 }
 
+# MQTT broker details
+BROKER = "your-hivemq-broker-url"  # Replace with your HiveMQ broker URL
+PORT = 8884  # WebSocket secure port
+TOPIC = "hello/topic"
+USERNAME = "MenneBos"  # Replace with your username
+PASSWORD = "your-password"  # Replace with your password
+
 class HomeyFlowSkill(OVOSSkill):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.override = True
-
-        # Load configuration from config.json
-        self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
-        self.config = self._load_config()
-
-        # Extract values from the configuration
-        self.homey_address = self.config["homey"]["address"]
-        self.homey_token = self.config["homey"]["token"]
-        self.broker_url = self.config["broker"]["url"]
-        self.broker_login = self.config["broker"]["login"]
-        self.broker_password = self.config["broker"]["password"]
-        self.nodejs_start_flow = os.path.expanduser(self.config["nodejs"]["start_flow"])
-        self.nodejs_get_flow = os.path.expanduser(self.config["nodejs"]["get_flow"])
-
-    def _load_config(self):
-        """Load the configuration file."""
-        try:
-            with open(self.config_path, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            self.log.error(f"❌ Failed to load config.json: {e}")
-            return {}
 
     @classproperty
     def runtime_requirements(self):
@@ -140,61 +125,50 @@ class HomeyFlowSkill(OVOSSkill):
             print(f"❌ Unexpected error: {e}")
 
     def _setup_mqtt(self):
-        try:
-            # MQTT broker details
-            BROKER = self.broker_url
-            PORT = 8884  # WebSocket secure port
-            USERNAME = self.broker_login
-            PASSWORD = self.broker_password
-            TOPIC = "hello/topic"
+        self.client = mqtt.Client()
+        #self.client.tls_set(
+        #    ca_certs="/etc/mosquitto/certs/ca.crt",
+        #    certfile="/etc/mosquitto/certs/client.crt",
+        #    keyfile="/etc/mosquitto/certs/client.key"
+        #)
 
+        # Dynamically load username and password from /etc/mosquitto/passwd
+        #username, password = self._get_mqtt_credentials("/etc/mosquitto/passwd")
+        #if not username or not password:
+        #    self.log.error("❌ Kon geen MQTT-gebruikersnaam en wachtwoord laden.")
+        #    return
 
-            # Callback when the client connects to the broker
-            def on_connect(client, userdata, flags, rc):
-                if rc == 0:
-                    self.log.info("✅ Connected to HiveMQ broker")
-                    client.subscribe(TOPIC)
-                else:
-                    self.log.error(f"❌ Failed to connect to broker, return code {rc}")
+        #self.client.username_pw_set(username, password)
+        #self.client.connect("ovos-server.local", 8883, 60)
+        
+        self.client.connect("192.168.5.27", 1883, 60)  # Replace with your broker's IP and port
+        self.client.subscribe("request_flow_mappings")
+        self.client.subscribe("save_flow_mappings")
+        self.client.subscribe("request_flows")
+        self.client.on_message = self._on_mqtt_message
+        self.client.loop_start()
 
+        self.log.info("✅ Verbonden met MQTT-broker en wacht op berichten.")    
 
-            self.client = mqtt.Client()
-
-            # Callback when a message is received
-            def on_message(client, userdata, msg):
-                try:
-                    topic = msg.topic
-                    payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
-                    self.log.info(f"Received topic: {topic} with payload: {payload}")
-
-                    # Handle specific topics
-                    if topic == "request_flow_mappings":
-                        self._send_flow_mappings()
-                    elif topic == "save_flow_mappings":
-                        self._save_flow_mappings(json.loads(payload))
-                    elif topic == "request_flows":
-                        self._request_flows(json.loads(payload))
-                except Exception as e:
-                    self.log.error(f"❌ Error processing MQTT message: {e}")
-
-            # Create MQTT client
-            self.client = mqtt.Client(transport="websockets")
-            self.client.username_pw_set(USERNAME, PASSWORD)
-            self.client.tls_set()  # Enable TLS
-
-            # Assign callbacks
-            self.client.on_connect = on_connect
-            self.client.on_message = on_message 
-
-            # Connect to the broker
-            self.client.connect(BROKER, PORT)    
-
-            # Start the MQTT loop
-            self.client.loop_start()
-            self.log.info("✅ MQTT client setup complete and connected to HiveMQ broker")
-        except Exception as e:
-            self.log.error(f"❌ Error setting up MQTT client: {e}")   
-
+    #def _get_mqtt_credentials(self, passwd_file_path):
+    #    """
+    #    Reads the Mosquitto passwd file and extracts the first username and password.
+    #    Assumes the password is hashed and matches the client certificate.
+    #    """
+    #    try:
+    #        with open(passwd_file_path, "r") as f:
+    #            for line in f:
+    #                if line.strip() and not line.startswith("#"):
+    #                    parts = line.split(":")
+    #                    if len(parts) == 2:
+    #                        username = parts[0].strip()
+    #                        hashed_password = parts[1].strip()
+    #                        # Return the username and hashed password (if needed for validation)
+    #                        return username, hashed_password
+    #    except Exception as e:
+    #        self.log.error(f"❌ Fout bij het lezen van het passwd-bestand: {e}")
+    #    return None, None
+    
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
@@ -255,7 +229,7 @@ class HomeyFlowSkill(OVOSSkill):
     def _request_flows(self, payload):
         try:
             search_string = payload.get("name", "")
-            args = ["node", self.nodejs_get_flow, search_string]
+            args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/get_flow.js"), search_string]
             self.log.info("✅ Start the subprocess for Homey API.")
             result = subprocess.run(args, capture_output=True, text=True, check=True)
             flows = json.loads(result.stdout.strip())
@@ -387,7 +361,7 @@ class HomeyFlowSkill(OVOSSkill):
             return
 
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", self.nodejs_start_flow, flow_id]
+        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)
