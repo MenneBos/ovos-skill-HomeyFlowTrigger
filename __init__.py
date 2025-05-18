@@ -399,6 +399,7 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
 
+        self.log.info(f"✅ Het pad naar start_Flow.js is {self.nodejs_start_flow}")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
         args = ["node", self.nodejs_start_flow, flow_id]
 

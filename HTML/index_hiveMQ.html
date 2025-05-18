@@ -123,33 +123,33 @@
   </footer>
 
   <script>
-    let client; // MQTT client
+    let client; // Declare the MQTT client globally
     let flowMappings = {}; // Local copy of flow_mappings.json
-
+  
     // Connect to the HiveMQ broker
     document.getElementById('connectBroker').addEventListener('click', () => {
       const brokerUrl = document.getElementById('brokerIp').value.trim();
       const username = document.getElementById('brokerLogin').value.trim();
       const password = document.getElementById('brokerPassword').value.trim();
-
+  
       if (!brokerUrl || !username || !password) {
         alert('Please fill in all fields (Broker URL, Login, and Password).');
         return;
       }
-
-      // Connect to the HiveMQ broker using WebSocket Secure
+  
+      // Initialize the MQTT client
       client = new Paho.MQTT.Client(brokerUrl, "web-client-" + Math.random());
-
+  
       client.onConnectionLost = (responseObject) => {
         console.error('Connection lost:', responseObject.errorMessage);
         alert('Connection lost: ' + responseObject.errorMessage);
       };
-
+  
       client.onMessageArrived = (message) => {
         const topic = message.destinationName;
         const payload = message.payloadString;
         console.log(`Received message on topic ${topic}: ${payload}`);
-
+  
         if (topic === 'send_flow_mappings') {
           flowMappings = JSON.parse(payload); // Update the local flowMappings object
           displayFlowMappings(); // Display the content in the UI
@@ -160,7 +160,7 @@
           displayAvailableFlows(JSON.parse(payload));
         }
       };
-
+  
       client.connect({
         onSuccess: () => {
           console.log('Connected to HiveMQ broker');
@@ -168,7 +168,7 @@
           client.subscribe('send_flow_mappings');
           client.subscribe('saved_flow_mappings');
           client.subscribe('send_flows');
-
+  
           // Enable buttons after successful connection
           document.getElementById('requestFlowMappings').disabled = false;
           document.getElementById('saveFlowMappings').disabled = false;
@@ -179,42 +179,54 @@
         useSSL: true
       });
     });
-
+  
     // Request flow mappings when the button is clicked
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
+      if (!client || !client.isConnected()) {
+        alert('MQTT client is not connected. Please connect to the broker first.');
+        return;
+      }
       client.publish('request_flow_mappings', ''); // Publish a request to the broker
     });
-
+  
     // Save flow mappings
     document.getElementById('saveFlowMappings').addEventListener('click', () => {
+      if (!client || !client.isConnected()) {
+        alert('MQTT client is not connected. Please connect to the broker first.');
+        return;
+      }
       client.publish('save_flow_mappings', JSON.stringify(flowMappings));
       alert('Flow mappings have been saved.');
     });
-
+  
     // Request flows
     document.getElementById('requestFlows').addEventListener('click', () => {
+      if (!client || !client.isConnected()) {
+        alert('MQTT client is not connected. Please connect to the broker first.');
+        return;
+      }
       const searchString = prompt('Enter a search string for flows:');
       client.publish('request_flows', JSON.stringify({ name: searchString }));
     });
-
+  
     function displayFlowMappings() {
       const container = document.getElementById('flowsContainer');
       container.innerHTML = ''; // Clear the container
-
+  
       for (const [flowName, flowData] of Object.entries(flowMappings)) {
         const flowDiv = document.createElement('div');
         flowDiv.className = 'flow';
-
+  
         const title = document.createElement('h3');
         title.textContent = `${flowName} (ID: ${flowData.id})`;
         flowDiv.appendChild(title);
-
+  
         const sentencesContainer = document.createElement('div');
         flowData.sentences.forEach((sentence, index) => {
           const sentenceDiv = document.createElement('div');
           sentenceDiv.style.display = 'flex';
           sentenceDiv.style.alignItems = 'center';
-
+  
           const input = document.createElement('input');
           input.type = 'text';
           input.value = sentence;
@@ -222,7 +234,7 @@
           input.addEventListener('change', (e) => {
             flowData.sentences[index] = e.target.value; // Update the sentence
           });
-
+  
           const deleteButton = document.createElement('button');
           deleteButton.textContent = 'Delete';
           deleteButton.style.marginLeft = '10px';
@@ -230,12 +242,12 @@
             flowData.sentences.splice(index, 1); // Remove the sentence
             displayFlowMappings(); // Refresh the display
           });
-
+  
           sentenceDiv.appendChild(input);
           sentenceDiv.appendChild(deleteButton);
           sentencesContainer.appendChild(sentenceDiv);
         });
-
+  
         const addSentenceButton = document.createElement('button');
         addSentenceButton.textContent = 'Add Sentence';
         addSentenceButton.addEventListener('click', () => {
@@ -245,33 +257,33 @@
             displayFlowMappings(); // Refresh the display
           }
         });
-
+  
         const deleteFlowButton = document.createElement('button');
         deleteFlowButton.textContent = 'Delete Flow';
         deleteFlowButton.addEventListener('click', () => {
           delete flowMappings[flowName]; // Remove the flow
           displayFlowMappings(); // Refresh the display
         });
-
+  
         flowDiv.appendChild(sentencesContainer);
         flowDiv.appendChild(addSentenceButton);
         flowDiv.appendChild(deleteFlowButton);
         container.appendChild(flowDiv);
       }
     }
-
+  
     function displayAvailableFlows(flows) {
       const container = document.getElementById('flowsContainer');
       container.innerHTML = ''; // Clear the container
-
+  
       for (const [flowName, flowData] of Object.entries(flows)) {
         const flowDiv = document.createElement('div');
         flowDiv.className = 'flow';
-
+  
         const title = document.createElement('h3');
         title.textContent = `${flowName} (ID: ${flowData.id})`;
         flowDiv.appendChild(title);
-
+  
         const addButton = document.createElement('button');
         addButton.textContent = 'Add';
         addButton.addEventListener('click', () => {
@@ -281,11 +293,9 @@
           };
           displayFlowMappings(); // Refresh the display
         });
-
+  
         flowDiv.appendChild(addButton);
         container.appendChild(flowDiv);
       }
     }
   </script>
-</body>
-</html>
