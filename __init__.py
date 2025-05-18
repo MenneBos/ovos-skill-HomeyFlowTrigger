@@ -401,7 +401,8 @@ class HomeyFlowSkill(OVOSSkill):
 
         self.log.info(f"✅ Het pad naar start_Flow.js is {self.nodejs_start_flow}")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", self.nodejs_start_flow, flow_id]
+        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
+
 
         try:
             result = subprocess.run(args, capture_output=True, text=True, check=True)

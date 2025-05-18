@@ -180,33 +180,49 @@
       });
     });
   
+
     // Request flow mappings when the button is clicked
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
         alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
-      client.publish('request_flow_mappings', ''); // Publish a request to the broker
+
+      // Create a new message
+      const message = new Paho.MQTT.Message("");
+      message.destinationName = "request_flow_mappings"; // Topic to publish to
+      client.send(message); // Publish the message
+      alert("Message published: request_flow_mappings");
     });
-  
+
     // Save flow mappings
     document.getElementById('saveFlowMappings').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
         alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
-      client.publish('save_flow_mappings', JSON.stringify(flowMappings));
-      alert('Flow mappings have been saved.');
+
+      // Create a new message
+      const payload = JSON.stringify(flowMappings);
+      const message = new Paho.MQTT.Message(payload);
+      message.destinationName = "save_flow_mappings"; // Topic to publish to
+      client.send(message); // Publish the message
+      alert("Message published: save_flow_mappings");
     });
-  
+
     // Request flows
     document.getElementById('requestFlows').addEventListener('click', () => {
       if (!client || !client.isConnected()) {
         alert('MQTT client is not connected. Please connect to the broker first.');
         return;
       }
+
       const searchString = prompt('Enter a search string for flows:');
-      client.publish('request_flows', JSON.stringify({ name: searchString }));
+      const payload = JSON.stringify({ name: searchString });
+      const message = new Paho.MQTT.Message(payload);
+      message.destinationName = "request_flows"; // Topic to publish to
+      client.send(message); // Publish the message
+      alert("Message published: request_flows");
     });
   
     function displayFlowMappings() {
