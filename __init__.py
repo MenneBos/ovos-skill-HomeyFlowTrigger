@@ -174,21 +174,21 @@ class HomeyFlowSkill(OVOSSkill):
                     self.log.error(f"❌ Failed to connect to broker, return code {rc}")
 
             # Callback when a message is received
-            def on_message(client, userdata, msg):
-                try:
-                    topic = msg.topic
-                    payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
-                    self.log.info(f"Received topic: {topic} with payload: {payload}")
-
-                    # Handle specific topics
-                    if topic == "request_flow_mappings":
-                        self._send_flow_mappings()
-                    elif topic == "save_flow_mappings":
-                        self._save_flow_mappings(json.loads(payload))
-                    elif topic == "request_flows":
-                        self._request_flows(json.loads(payload))
-                except Exception as e:
-                    self.log.error(f"❌ Error processing MQTT message: {e}")
+            ##def on_message(client, userdata, msg):
+            ##    try:
+            #        topic = msg.topic
+            #        payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
+            #        self.log.info(f"Received topic: {topic} with payload: {payload}")#
+#
+#                    # Handle specific topics
+#                    if topic == "request_flow_mappings":
+#                        self._send_flow_mappings()
+  #                  elif topic == "save_flow_mappings":
+  #                      self._save_flow_mappings(json.loads(payload))
+  #                  elif topic == "request_flows":
+  #                      self._request_flows(json.loads(payload))
+  #              except Exception as e:
+  #                  self.log.error(f"❌ Error processing MQTT message: {e}")
 
             # Create MQTT client
             self.client = mqtt.Client(transport="websockets")
@@ -197,7 +197,8 @@ class HomeyFlowSkill(OVOSSkill):
 
             # Assign callbacks
             self.client.on_connect = on_connect
-            self.client.on_message = on_message 
+            self.client.on_message = self._on_mqtt_message  # Use the unified function
+
 
             # Connect to the broker
             self.client.connect(BROKER, PORT)    
