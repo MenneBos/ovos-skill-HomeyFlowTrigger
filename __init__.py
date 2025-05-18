@@ -27,15 +27,22 @@ class HomeyFlowSkill(OVOSSkill):
         self.broker_url = self.config.get("broker", {}).get("url")
         if not self.broker_url:
             self.log.error("❌ broker_url is missing in config.json")
+        else:
+            self.log.info(f"✅ broker_url loaded: {self.broker_url}")
 
         # Extract values from the configuration
         self.homey_address = self.config["homey"]["address"]
         self.homey_token = self.config["homey"]["token"]
-        self.broker_url = self.config["broker"]["url"]
-        self.broker_login = self.config["broker"]["login"]
-        self.broker_password = self.config["broker"]["password"]
-        self.nodejs_start_flow = os.path.expanduser(self.config["nodejs"]["start_flow"])
-        self.nodejs_get_flow = os.path.expanduser(self.config["nodejs"]["get_flow"])
+        self.broker_login = self.config.get("broker", {}).get("login", "")
+        self.broker_password = self.config.get("broker", {}).get("password", "")
+        self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
+        self.nodejs_get_flow = os.path.expanduser(self.config.get("nodejs", {}).get("get_flow", ""))
+
+        #self.broker_url = self.config["broker"]["url"]
+        #self.broker_login = self.config["broker"]["login"]
+        #self.broker_password = self.config["broker"]["password"]
+        #self.nodejs_start_flow = os.path.expanduser(self.config["nodejs"]["start_flow"])
+        #self.nodejs_get_flow = os.path.expanduser(self.config["nodejs"]["get_flow"])
 
     def _load_config(self):
         """Load the configuration file."""
@@ -154,7 +161,6 @@ class HomeyFlowSkill(OVOSSkill):
             USERNAME = self.broker_login
             PASSWORD = self.broker_password
             TOPIC = "hello/topic"
-
 
             # Callback when the client connects to the broker
             def on_connect(client, userdata, flags, rc):
