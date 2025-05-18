@@ -23,6 +23,11 @@ class HomeyFlowSkill(OVOSSkill):
         self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
         self.config = self._load_config()
 
+        # Extract broker_url
+        self.broker_url = self.config.get("broker", {}).get("url")
+        if not self.broker_url:
+            self.log.error("❌ broker_url is missing in config.json")
+
         # Extract values from the configuration
         self.homey_address = self.config["homey"]["address"]
         self.homey_token = self.config["homey"]["token"]
@@ -36,7 +41,9 @@ class HomeyFlowSkill(OVOSSkill):
         """Load the configuration file."""
         try:
             with open(self.config_path, "r") as f:
-                return json.load(f)
+                config = json.load(f)
+                self.log.info(f"✅ Loaded config.json: {config}")
+                return config
         except Exception as e:
             self.log.error(f"❌ Failed to load config.json: {e}")
             return {}
