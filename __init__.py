@@ -24,9 +24,9 @@ class HomeyFlowSkill(OVOSSkill):
         self.config = self._load_config()
 
         # Extract values from the configuration
-        self.homey_address = self.config["homey"]["address"]
-        self.homey_token = self.config["homey"]["token"]
-        self.broker_url = self.config.get("broker", {}).get("url")
+        self.homey_address = self.config.get("homey", {}).get("address", "")
+        self.homey_token = self.config.get("homey", {}).get("token", "")
+        self.broker_url = self.config.get("broker", {}).get("url", "")
         self.broker_login = self.config.get("broker", {}).get("login", "")
         self.broker_password = self.config.get("broker", {}).get("password", "")
         self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
@@ -37,17 +37,6 @@ class HomeyFlowSkill(OVOSSkill):
         #self.broker_password = self.config["broker"]["password"]
         #self.nodejs_start_flow = os.path.expanduser(self.config["nodejs"]["start_flow"])
         #self.nodejs_get_flow = os.path.expanduser(self.config["nodejs"]["get_flow"])
-
-    def _load_config(self):
-        """Load the configuration file."""
-        try:
-            with open(self.config_path, "r") as f:
-                config = json.load(f)
-                self.log.info(f"✅ Loaded config.json: {config}")
-                return config
-        except Exception as e:
-            self.log.error(f"❌ Failed to load config.json: {e}")
-            return {}
 
     @classproperty
     def runtime_requirements(self):
@@ -78,11 +67,19 @@ class HomeyFlowSkill(OVOSSkill):
         return self.settings.get("log_level", "INFO")   
 
     def initialize(self):
+        """Initialize the skill."""
+        # Ensure configuration is loaded before setting up MQTT
+        if not self.broker_url:
+            self.log.error("❌ broker_url is missing in config.json. MQTT setup skipped.")
+            return
+
+        # Set up MQTT after configuration is loaded
+        self._setup_mqtt()
+
+        # Other initialization tasks
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
         self.intent_dir = os.path.join(self.root_dir, "locale", "nl-NL", "intent")
-        #self.intent_file_path = os.path.join(self.root_dir, "HomeyFlow.intent")
-        self.register_intent("HomeyFlow.intent", self.handle_start_flow)
-        self._setup_mqtt()
+        #self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
         # Remove all existing .intent files
         self.clear_intent_files()
@@ -92,6 +89,17 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Register all .intent files
         self.register_all_intents()
+    
+    def _load_config(self):
+        """Load the configuration file."""
+        try:
+            with open(self.config_path, "r") as f:
+                config = json.load(f)
+                self.log.info(f"✅ Loaded config.json: {config}")
+                return config
+        except Exception as e:
+            self.log.error(f"❌ Failed to load config.json: {e}")
+            return {}
 
     def clear_intent_files(self):
         """Remove all existing .intent files in the intent directory."""
@@ -164,9 +172,6 @@ class HomeyFlowSkill(OVOSSkill):
                     client.subscribe(TOPIC)
                 else:
                     self.log.error(f"❌ Failed to connect to broker, return code {rc}")
-
-
-            self.client = mqtt.Client()
 
             # Callback when a message is received
             def on_message(client, userdata, msg):

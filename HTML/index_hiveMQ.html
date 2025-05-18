@@ -100,6 +100,12 @@
     <label for="brokerIp">HiveMQ Broker URL:</label>
     <input type="text" id="brokerIp" placeholder="Enter Broker URL (e.g., wss://your-broker-url:8884/mqtt)">
     <br>
+    <label for="brokerLogin">Login:</label>
+    <input type="text" id="brokerLogin" placeholder="Enter Login">
+    <br>
+    <label for="brokerPassword">Password:</label>
+    <input type="password" id="brokerPassword" placeholder="Enter Password">
+    <br>
     <button id="connectBroker">Connect to HiveMQ Broker</button>
     <br>
     <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
@@ -120,68 +126,59 @@
     let client; // MQTT client
     let flowMappings = {}; // Local copy of flow_mappings.json
 
-    // Load configuration from config.json
-    fetch('config.json')
-      .then(response => response.json())
-      .then(config => {
-        const brokerUrl = config.broker.url;
-        const username = config.broker.login;
-        const password = config.broker.password;
+    // Connect to the HiveMQ broker
+    document.getElementById('connectBroker').addEventListener('click', () => {
+      const brokerUrl = document.getElementById('brokerIp').value.trim();
+      const username = document.getElementById('brokerLogin').value.trim();
+      const password = document.getElementById('brokerPassword').value.trim();
 
-        // Connect to the HiveMQ broker
-        document.getElementById('connectBroker').addEventListener('click', () => {
-          if (!brokerUrl) {
-            alert('Broker URL is missing in config.json.');
-            return;
-          }
+      if (!brokerUrl || !username || !password) {
+        alert('Please fill in all fields (Broker URL, Login, and Password).');
+        return;
+      }
 
-          // Connect to the HiveMQ broker using WebSocket Secure
-          client = new Paho.MQTT.Client(brokerUrl, "web-client-" + Math.random());
+      // Connect to the HiveMQ broker using WebSocket Secure
+      client = new Paho.MQTT.Client(brokerUrl, "web-client-" + Math.random());
 
-          client.onConnectionLost = (responseObject) => {
-            console.error('Connection lost:', responseObject.errorMessage);
-            alert('Connection lost: ' + responseObject.errorMessage);
-          };
+      client.onConnectionLost = (responseObject) => {
+        console.error('Connection lost:', responseObject.errorMessage);
+        alert('Connection lost: ' + responseObject.errorMessage);
+      };
 
-          client.onMessageArrived = (message) => {
-            const topic = message.destinationName;
-            const payload = message.payloadString;
-            console.log(`Received message on topic ${topic}: ${payload}`);
+      client.onMessageArrived = (message) => {
+        const topic = message.destinationName;
+        const payload = message.payloadString;
+        console.log(`Received message on topic ${topic}: ${payload}`);
 
-            if (topic === 'send_flow_mappings') {
-              flowMappings = JSON.parse(payload); // Update the local flowMappings object
-              displayFlowMappings(); // Display the content in the UI
-            } else if (topic === 'saved_flow_mappings') {
-              const response = JSON.parse(payload);
-              alert(response.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${response.error}`);
-            } else if (topic === 'send_flows') {
-              displayAvailableFlows(JSON.parse(payload));
-            }
-          };
+        if (topic === 'send_flow_mappings') {
+          flowMappings = JSON.parse(payload); // Update the local flowMappings object
+          displayFlowMappings(); // Display the content in the UI
+        } else if (topic === 'saved_flow_mappings') {
+          const response = JSON.parse(payload);
+          alert(response.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${response.error}`);
+        } else if (topic === 'send_flows') {
+          displayAvailableFlows(JSON.parse(payload));
+        }
+      };
 
-          client.connect({
-            onSuccess: () => {
-              console.log('Connected to HiveMQ broker');
-              alert('Connected to HiveMQ broker');
-              client.subscribe('send_flow_mappings');
-              client.subscribe('saved_flow_mappings');
-              client.subscribe('send_flows');
+      client.connect({
+        onSuccess: () => {
+          console.log('Connected to HiveMQ broker');
+          alert('Connected to HiveMQ broker');
+          client.subscribe('send_flow_mappings');
+          client.subscribe('saved_flow_mappings');
+          client.subscribe('send_flows');
 
-              // Enable buttons after successful connection
-              document.getElementById('requestFlowMappings').disabled = false;
-              document.getElementById('saveFlowMappings').disabled = false;
-              document.getElementById('requestFlows').disabled = false;
-            },
-            userName: username,
-            password: password,
-            useSSL: true
-          });
-        });
-      })
-      .catch(error => {
-        console.error('Failed to load config.json:', error);
-        alert('Failed to load configuration. Please check config.json.');
+          // Enable buttons after successful connection
+          document.getElementById('requestFlowMappings').disabled = false;
+          document.getElementById('saveFlowMappings').disabled = false;
+          document.getElementById('requestFlows').disabled = false;
+        },
+        userName: username,
+        password: password,
+        useSSL: true
       });
+    });
 
     // Request flow mappings when the button is clicked
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
