@@ -126,20 +126,6 @@ class HomeyFlowSkill(OVOSSkill):
 
     def _setup_mqtt(self):
         self.client = mqtt.Client()
-        #self.client.tls_set(
-        #    ca_certs="/etc/mosquitto/certs/ca.crt",
-        #    certfile="/etc/mosquitto/certs/client.crt",
-        #    keyfile="/etc/mosquitto/certs/client.key"
-        #)
-
-        # Dynamically load username and password from /etc/mosquitto/passwd
-        #username, password = self._get_mqtt_credentials("/etc/mosquitto/passwd")
-        #if not username or not password:
-        #    self.log.error("❌ Kon geen MQTT-gebruikersnaam en wachtwoord laden.")
-        #    return
-
-        #self.client.username_pw_set(username, password)
-        #self.client.connect("ovos-server.local", 8883, 60)
         
         self.client.connect("192.168.5.27", 1883, 60)  # Replace with your broker's IP and port
         self.client.subscribe("request_flow_mappings")
@@ -150,24 +136,7 @@ class HomeyFlowSkill(OVOSSkill):
 
         self.log.info("✅ Verbonden met MQTT-broker en wacht op berichten.")    
 
-    #def _get_mqtt_credentials(self, passwd_file_path):
-    #    """
-    #    Reads the Mosquitto passwd file and extracts the first username and password.
-    #    Assumes the password is hashed and matches the client certificate.
-    #    """
-    #    try:
-    #        with open(passwd_file_path, "r") as f:
-    #            for line in f:
-    #                if line.strip() and not line.startswith("#"):
-    #                    parts = line.split(":")
-    #                    if len(parts) == 2:
-    #                        username = parts[0].strip()
-    #                        hashed_password = parts[1].strip()
-    #                        # Return the username and hashed password (if needed for validation)
-    #                        return username, hashed_password
-    #    except Exception as e:
-    #        self.log.error(f"❌ Fout bij het lezen van het passwd-bestand: {e}")
-    #    return None, None
+
     
     def _on_mqtt_message(self, client, userdata, msg):
         try:

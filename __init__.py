@@ -174,8 +174,8 @@ class HomeyFlowSkill(OVOSSkill):
                     self.log.error(f"❌ Failed to connect to broker, return code {rc}")
 
             # Callback when a message is received
-            ##def on_message(client, userdata, msg):
-            ##    try:
+            #def on_message(client, userdata, msg):
+            #    try:
             #        topic = msg.topic
             #        payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
             #        self.log.info(f"Received topic: {topic} with payload: {payload}")#
@@ -194,6 +194,9 @@ class HomeyFlowSkill(OVOSSkill):
             self.client = mqtt.Client(transport="websockets")
             self.client.username_pw_set(USERNAME, PASSWORD)
             self.client.tls_set()  # Enable TLS
+            self.client.subscribe("request_flow_mappings")
+            self.client.subscribe("save_flow_mappings")
+            self.client.subscribe("request_flows")
 
             # Assign callbacks
             self.client.on_connect = on_connect
@@ -209,7 +212,7 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Error setting up MQTT client: {e}")   
 
-    def _on_mqtt_message(self, client, userdata, msg):
+    def _on_mqtt_message(client, userdata, msg):
         try:
             topic = msg.topic
             payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
