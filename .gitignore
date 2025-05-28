@@ -5,3 +5,4 @@ HTML/test_mqtt_hivemq.html
 *.srl
 *.csr
 nodejs/config.json
+nodejs/package-lock.json
