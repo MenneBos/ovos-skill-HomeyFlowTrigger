@@ -159,7 +159,7 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             # MQTT broker details
             BROKER = self.broker_url
-            self.log.error(f"✅ Show the BROKER URL {BROKER}")
+            self.log.info(f"✅ Show the BROKER URL {BROKER}")
             PORT = 8884  # WebSocket secure port
             USERNAME = self.broker_login
             PASSWORD = self.broker_password
