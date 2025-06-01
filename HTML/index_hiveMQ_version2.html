@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Flow Mappings Manager</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <title>HomeyFlowTrigger Device Manager</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,19 +13,16 @@
       background: linear-gradient(to bottom, #fff8dc, #f7e7a9);
       color: #333;
     }
-
     header {
       background-color: #ffd700;
       padding: 20px;
       text-align: center;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-
     header img {
       max-height: 60px;
       vertical-align: middle;
     }
-
     header h1 {
       display: inline-block;
       margin: 0;
@@ -33,11 +30,9 @@
       font-size: 24px;
       color: #333;
     }
-
     main {
       padding: 20px;
     }
-
     button, input {
       margin: 5px;
       padding: 10px;
@@ -48,15 +43,12 @@
       color: #333;
       cursor: pointer;
     }
-
     button:hover {
       background-color: #ffcc00;
     }
-
     input {
-      width: 300px;
+      width: 600px;
     }
-
     #flowMappings {
       margin-top: 20px;
       border: 1px solid #ccc;
@@ -66,7 +58,6 @@
       background-color: #fff8dc;
       border-radius: 5px;
     }
-
     .flow {
       margin-bottom: 10px;
       padding: 10px;
@@ -74,11 +65,9 @@
       border-radius: 5px;
       background-color: #fff;
     }
-
     .flow input {
       margin: 5px 0;
     }
-
     footer {
       text-align: center;
       padding: 10px;
@@ -97,10 +86,20 @@
   </header>
 
   <main>
-    <label for="brokerIp">Broker IP Address:</label>
-    <input type="text" id="brokerIp" placeholder="Enter Broker IP (e.g., 192.168.5.27)">
+    <label for="brokerIp">HiveMQ Broker URL:</label>
+    <input type="text" id="brokerIp" placeholder="Enter Broker URL (e.g., wss://your-broker-url:8884/mqtt)">
     <br>
-    <button id="connectBroker">Connect to Broker</button>
+    <label for="brokerLogin">Login:</label>
+    <input type="text" id="brokerLogin" placeholder="Enter Login">
+    <br>
+    <label for="brokerPassword">Password:</label>
+    <input type="password" id="brokerPassword" placeholder="Enter Password">
+    <br>
+    <label for="deviceName">Device naam (prefix):</label>
+    <input type="text" id="deviceName" placeholder="Bijv. Jarvis">
+    <br>
+    <button id="connectBroker">Connect to HiveMQ Broker</button>
+    <span id="broker_status"></span>
     <br>
     <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
     <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
@@ -117,79 +116,98 @@
   </footer>
 
   <script>
-    let client; // MQTT client
-    let flowMappings = {}; // Local copy of flow_mappings.json
+    let client;
+    let flowMappings = {};
+    let devicePrefix = "";
 
-    // Connect to the broker
+    // Helper om topic te genereren met prefix
+    function topic(name) {
+      if (!devicePrefix) return name;
+      return `${devicePrefix}/${name}`;
+    }
+
+    // Connect to the HiveMQ broker
     document.getElementById('connectBroker').addEventListener('click', () => {
-      const brokerIp = document.getElementById('brokerIp').value.trim();
+      const brokerUrl = document.getElementById('brokerIp').value.trim();
+      const username = document.getElementById('brokerLogin').value.trim();
+      const password = document.getElementById('brokerPassword').value.trim();
+      devicePrefix = document.getElementById('deviceName').value.trim();
 
-      if (!brokerIp) {
-        alert('Please enter a valid broker IP address.');
+      if (!brokerUrl || !username || !password || !devicePrefix) {
+        alert('Please fill in all fields (Broker URL, Login, Password, Device naam).');
         return;
       }
 
-      // Connect to the broker using plain WebSocket
-      client = mqtt.connect(`ws://${brokerIp}:9001`);
+      client = new Paho.MQTT.Client(brokerUrl, "web-client-" + Math.random());
 
-      client.on('connect', () => {
-        console.log('Connected to MQTT broker');
-        alert('Connected to MQTT broker');
-        client.subscribe('send_flow_mappings');
-        client.subscribe('saved_flow_mappings');
-        client.subscribe('send_flows');
+      client.onConnectionLost = (responseObject) => {
+        document.getElementById('broker_status').innerText = '❌ Connection lost: ' + responseObject.errorMessage;
+      };
 
-        // Enable buttons after successful connection
-        document.getElementById('requestFlowMappings').disabled = false;
-        document.getElementById('saveFlowMappings').disabled = false;
-        document.getElementById('requestFlows').disabled = false;
-      });
-
-      client.on('error', (err) => {
-        console.error('Connection error:', err);
-        alert('Failed to connect to the broker. Check the IP address and broker configuration.');
-      });
-
-      // Subscribe to the send_flow_mappings topic and display the content
-      client.on('message', (topic, message) => {
-        const payload = JSON.parse(message.toString());
-        if (topic === 'send_flow_mappings') {
-          flowMappings = payload; // Update the local flowMappings object
-          displayFlowMappings(); // Display the content in the UI
-        } else if (topic === 'saved_flow_mappings') {
-          alert(payload.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${payload.error}`);
-        } else if (topic === 'send_flows') {
-          displayAvailableFlows(payload);
+      client.onMessageArrived = (message) => {
+        const topicName = message.destinationName;
+        const payload = message.payloadString;
+        // Dynamisch op prefix filteren
+        if (topicName === topic('send_flow_mappings')) {
+          flowMappings = JSON.parse(payload);
+          displayFlowMappings();
+        } else if (topicName === topic('saved_flow_mappings')) {
+          const response = JSON.parse(payload);
+          alert(response.status === 'success' ? 'Flow mappings saved successfully!' : `Error: ${response.error}`);
+        } else if (topicName === topic('send_flows')) {
+          displayAvailableFlows(JSON.parse(payload));
         }
+      };
+
+      client.connect({
+        onSuccess: () => {
+          document.getElementById('broker_status').innerText = "✅ Connected!";
+          // Subscribe op device-specifieke topics
+          client.subscribe(topic('send_flow_mappings'));
+          client.subscribe(topic('saved_flow_mappings'));
+          client.subscribe(topic('send_flows'));
+          // Enable buttons
+          document.getElementById('requestFlowMappings').disabled = false;
+          document.getElementById('saveFlowMappings').disabled = false;
+          document.getElementById('requestFlows').disabled = false;
+        },
+        userName: username,
+        password: password,
+        useSSL: brokerUrl.startsWith("wss://")
       });
     });
 
-    // Request flow mappings when the button is clicked
+    // Request flow mappings
     document.getElementById('requestFlowMappings').addEventListener('click', () => {
-      client.publish('request_flow_mappings', ''); // Publish a request to the broker
+      if (!client || !client.isConnected()) return;
+      const message = new Paho.MQTT.Message("");
+      message.destinationName = topic("request_flow_mappings");
+      client.send(message);
     });
 
     // Save flow mappings
     document.getElementById('saveFlowMappings').addEventListener('click', () => {
-      client.publish('save_flow_mappings', JSON.stringify(flowMappings));
-
-      // Display a message to the user
-      alert('De wijzigingen zijn opgeslagen. De OVOS-service wordt opnieuw gestart om het AI model opnieuw te trainen.');
+      if (!client || !client.isConnected()) return;
+      const payload = JSON.stringify(flowMappings);
+      const message = new Paho.MQTT.Message(payload);
+      message.destinationName = topic("save_flow_mappings");
+      client.send(message);
+      alert("Message published: save_flow_mappings");
     });
 
     // Request flows
     document.getElementById('requestFlows').addEventListener('click', () => {
+      if (!client || !client.isConnected()) return;
       const searchString = prompt('Enter a search string for flows:');
-      client.publish('request_flows', JSON.stringify({ name: searchString }));
+      const payload = JSON.stringify({ name: searchString });
+      const message = new Paho.MQTT.Message(payload);
+      message.destinationName = topic("request_flows");
+      client.send(message);
     });
 
     function displayFlowMappings() {
       const container = document.getElementById('flowsContainer');
-      container.innerHTML = ''; // Clear the container
-
-      container.style.maxHeight = '600px'; // Adjust the height as needed
-      container.style.overflowY = 'auto';
-
+      container.innerHTML = '';
       for (const [flowName, flowData] of Object.entries(flowMappings)) {
         const flowDiv = document.createElement('div');
         flowDiv.className = 'flow';
@@ -209,15 +227,15 @@
           input.value = sentence;
           input.style.flex = '1';
           input.addEventListener('change', (e) => {
-            flowData.sentences[index] = e.target.value; // Update the sentence
+            flowData.sentences[index] = e.target.value;
           });
 
           const deleteButton = document.createElement('button');
           deleteButton.textContent = 'Delete';
           deleteButton.style.marginLeft = '10px';
           deleteButton.addEventListener('click', () => {
-            flowData.sentences.splice(index, 1); // Remove the sentence
-            displayFlowMappings(); // Refresh the display
+            flowData.sentences.splice(index, 1);
+            displayFlowMappings();
           });
 
           sentenceDiv.appendChild(input);
@@ -231,15 +249,15 @@
           const newSentence = prompt('Enter a new sentence:');
           if (newSentence) {
             flowData.sentences.push(newSentence);
-            displayFlowMappings(); // Refresh the display
+            displayFlowMappings();
           }
         });
 
         const deleteFlowButton = document.createElement('button');
         deleteFlowButton.textContent = 'Delete Flow';
         deleteFlowButton.addEventListener('click', () => {
-          delete flowMappings[flowName]; // Remove the flow
-          displayFlowMappings(); // Refresh the display
+          delete flowMappings[flowName];
+          displayFlowMappings();
         });
 
         flowDiv.appendChild(sentencesContainer);
@@ -249,66 +267,30 @@
       }
     }
 
-    // Display available flows for adding
     function displayAvailableFlows(flows) {
-      // Convert the object to an array of flows
-      const flowArray = Object.entries(flows).map(([name, data]) => ({
-        name: name,
-        id: data.id
-      }));
-
-      if (flowArray.length === 0) {
-        alert('No flows found for the given search string.');
-        return;
-      }
-
-      // Create a container for the flows
-      const container = document.createElement('div');
-      container.style.maxHeight = '600px';
-      container.style.overflowY = 'auto';
-      container.style.border = '1px solid #ccc';
-      container.style.padding = '10px';
-      container.style.marginTop = '20px';
-
-      // Add a title
-      const title = document.createElement('h3');
-      title.textContent = 'Available Flows';
-      container.appendChild(title);
-
-      // Add each flow to the container
-      flowArray.forEach(flow => {
+      const container = document.getElementById('flowsContainer');
+      container.innerHTML = '';
+      for (const [flowName, flowData] of Object.entries(flows)) {
         const flowDiv = document.createElement('div');
-        flowDiv.style.display = 'flex';
-        flowDiv.style.justifyContent = 'space-between';
-        flowDiv.style.alignItems = 'center';
-        flowDiv.style.marginBottom = '10px';
+        flowDiv.className = 'flow';
 
-        const flowName = document.createElement('span');
-        flowName.textContent = flow.name;
-        flowName.style.flex = '1';
+        const title = document.createElement('h3');
+        title.textContent = `${flowName} (ID: ${flowData.id})`;
+        flowDiv.appendChild(title);
 
         const addButton = document.createElement('button');
         addButton.textContent = 'Add';
-        addButton.style.marginLeft = '10px';
         addButton.addEventListener('click', () => {
-          // Add the selected flow to flow_mappings
-          flowMappings[flow.name] = {
-            id: flow.id, // Save the flow ID for triggering
-            sentences: [] // Initialize with an empty sentences array
+          flowMappings[flowName] = {
+            id: flowData.id,
+            sentences: []
           };
-          displayFlowMappings(); // Refresh the flow mappings display
-          alert(`Flow "${flow.name}" added to flow mappings.`);
+          displayFlowMappings();
         });
 
-        flowDiv.appendChild(flowName);
         flowDiv.appendChild(addButton);
         container.appendChild(flowDiv);
-      });
-
-      // Add the container to the body or a specific section of the page
-      const flowsContainer = document.getElementById('flowsContainer');
-      flowsContainer.innerHTML = ''; // Clear any previous content
-      flowsContainer.appendChild(container);
+      }
     }
   </script>
 </body>
