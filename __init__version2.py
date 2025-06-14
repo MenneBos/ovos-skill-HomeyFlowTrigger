@@ -1,5 +1,5 @@
-#from ovos_workshop.decorators import intent_handler
-#from ovos_workshop.intents import IntentBuilder
+from ovos_workshop.decorators import intent_handler
+from ovos_workshop.intents import IntentBuilder
 from ovos_utils import classproperty
 from ovos_utils.log import LOG
 from ovos_utils.process_utils import RuntimeRequirements
@@ -12,6 +12,7 @@ import re
 from collections import deque
 import paho.mqtt.client as mqtt
 from difflib import get_close_matches
+from ovos_utils.lang import get_default_lang
 
 DEFAULT_SETTINGS = {
     "log_level": "INFO"
@@ -40,6 +41,17 @@ class HomeyFlowSkill(OVOSSkill):
         self.secret = self.config.get("device", {}).get("secret", "")
         self.naam_geclaimd = self.config.get("device", {}).get("naam_geclaimd", False)
         self.topics = self.config.get("topics", {})
+
+        # Language detection
+        self.language = get_default_lang()
+        self.log.info(f"Detected language: {self.language}")
+
+        if self.language.lower() == "nl-nl":
+            self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
+        elif self.language.lower() == "en-us":
+            self.intent_dir = os.path.join(self.root_dir, "locale", "en-us", "intents")
+        else:
+            self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
 
     @classproperty
     def runtime_requirements(self):
@@ -81,7 +93,6 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Other initialization tasks
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
-        self.intent_dir = os.path.join(self.root_dir, "locale", "nl-NL", "intent")
         #self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
         # Remove all existing .intent files
@@ -90,8 +101,9 @@ class HomeyFlowSkill(OVOSSkill):
         # Recreate .intent files based on flow_mappings.json
         self.recreate_intent_files()
 
-        # Register all .intent files zo the Python script can use the intent
+        # Register all .intent files so the Python script can use the intent
         self.register_all_intents()
+        self.add_event("homey_flow_trigger", self.handle_start_flow)
     
     def _load_config(self):
         """Load the configuration file."""
@@ -393,7 +405,7 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Onverwachte fout bij het herstarten van de OVOS-service: {e}")
 
-
+    #@intent_handler(IntentBuilder("homey.intent"))
     def handle_start_flow(self, message):
         # Extract the utterance from the message
         utterance = message.data.get("utterance", "").strip().lower()
