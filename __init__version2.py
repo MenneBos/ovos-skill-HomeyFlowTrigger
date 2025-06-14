@@ -1,12 +1,15 @@
+#from ovos_workshop.decorators import intent_handler
+#from ovos_workshop.intents import IntentBuilder
 from ovos_utils import classproperty
 from ovos_utils.log import LOG
-#from ovos_workshop.intents import IntentBuilder
 from ovos_utils.process_utils import RuntimeRequirements
-#from ovos_workshop.decorators import intent_handler
 from ovos_workshop.skills.ovos import OVOSSkill
 import subprocess
 import os
 import json
+import time
+import re
+from collections import deque
 import paho.mqtt.client as mqtt
 from difflib import get_close_matches
 
@@ -14,17 +17,29 @@ DEFAULT_SETTINGS = {
     "log_level": "INFO"
 }
 
-# MQTT broker details
-BROKER = "your-hivemq-broker-url"  # Replace with your HiveMQ broker URL
-PORT = 8884  # WebSocket secure port
-TOPIC = "hello/topic"
-USERNAME = "MenneBos"  # Replace with your username
-PASSWORD = "your-password"  # Replace with your password
-
 class HomeyFlowSkill(OVOSSkill):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.override = True
+
+        # Load configuration from config.json
+        self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
+        self.config = self._load_config()
+
+        # Extract values from the configuration (safe extraction)
+        self.homey_address = self.config.get("homey", {}).get("address", "")
+        self.homey_token = self.config.get("homey", {}).get("token", "")
+        self.broker_url = self.config.get("broker", {}).get("url", "")
+        self.broker_login = self.config.get("broker", {}).get("login", "")
+        self.broker_password = self.config.get("broker", {}).get("password", "")
+        self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
+        self.nodejs_get_flow = os.path.expanduser(self.config.get("nodejs", {}).get("get_flow", ""))
+
+        # Device/topic info (safe extraction)
+        self.device_name = self.config.get("device", {}).get("name", "")
+        self.secret = self.config.get("device", {}).get("secret", "")
+        self.naam_geclaimd = self.config.get("device", {}).get("naam_geclaimd", False)
+        self.topics = self.config.get("topics", {})
 
     @classproperty
     def runtime_requirements(self):
@@ -55,11 +70,19 @@ class HomeyFlowSkill(OVOSSkill):
         return self.settings.get("log_level", "INFO")   
 
     def initialize(self):
+        """Initialize the skill."""
+        # Ensure configuration is loaded before setting up MQTT
+        if not self.broker_url:
+            self.log.error("❌ broker_url is missing in config.json. MQTT setup skipped.")
+            return
+
+        # Set up MQTT after configuration is loaded
+        self._setup_mqtt()
+
+        # Other initialization tasks
         self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
         self.intent_dir = os.path.join(self.root_dir, "locale", "nl-NL", "intent")
-        #self.intent_file_path = os.path.join(self.root_dir, "HomeyFlow.intent")
-        self.register_intent("HomeyFlow.intent", self.handle_start_flow)
-        self._setup_mqtt()
+        #self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
         # Remove all existing .intent files
         self.clear_intent_files()
@@ -67,8 +90,19 @@ class HomeyFlowSkill(OVOSSkill):
         # Recreate .intent files based on flow_mappings.json
         self.recreate_intent_files()
 
-        # Register all .intent files
+        # Register all .intent files zo the Python script can use the intent
         self.register_all_intents()
+    
+    def _load_config(self):
+        """Load the configuration file."""
+        try:
+            with open(self.config_path, "r") as f:
+                config = json.load(f)
+                self.log.info(f"✅ Loaded config.json: {config}")
+                return config
+        except Exception as e:
+            self.log.error(f"❌ Failed to load config.json: {e}")
+            return {}
 
     def clear_intent_files(self):
         """Remove all existing .intent files in the intent directory."""
@@ -101,7 +135,7 @@ class HomeyFlowSkill(OVOSSkill):
             self.log.error(f"❌ Fout bij het opnieuw aanmaken van .intent-bestanden: {e}")
 
     def register_all_intents(self):
-        """Register all .intent files in the intent directory."""
+        """Register all .intent files so the Python script can use the intent."""
         try:
             if not os.path.exists(self.intent_dir):
                 self.log.warning(f"⚠️ Intent directory '{self.intent_dir}' does not exist.")
@@ -125,37 +159,107 @@ class HomeyFlowSkill(OVOSSkill):
             print(f"❌ Unexpected error: {e}")
 
     def _setup_mqtt(self):
-        self.client = mqtt.Client()
-        
-        self.client.connect("192.168.5.27", 1883, 60)  # Replace with your broker's IP and port
-        self.client.subscribe("request_flow_mappings")
-        self.client.subscribe("save_flow_mappings")
-        self.client.subscribe("request_flows")
-        self.client.on_message = self._on_mqtt_message
-        self.client.loop_start()
+        try:
+            # MQTT broker details
+            BROKER = self.broker_url
+            self.log.info(f"✅ Show the BROKER URL {BROKER}")
+            # Extract host and port from broker_url
+            if "://" in BROKER:
+                BROKER = BROKER.split("://")[1]
+            if ":" in BROKER:
+                host, port = BROKER.split(":")
+                port = int(port)
+            else:
+                host = BROKER
+                port = 8884  # default websocket secure port
 
-        self.log.info("✅ Verbonden met MQTT-broker en wacht op berichten.")    
+            USERNAME = self.broker_login
+            PASSWORD = self.broker_password
 
+            # Callback when the client connects to the broker
+            def on_connect(client, userdata, flags, rc):
+                if rc == 0:
+                    self.log.info("✅ Connected to HiveMQ broker")
+                    if not self.naam_geclaimd:
+                        client.subscribe(f"nieuw/{self.device_name}")
+                    else:
+                        self._subscribe_device_topics()
+                    client.subscribe("namenlijst/request")
+                else:
+                    self.log.error(f"❌ Failed to connect to broker, return code {rc}")
 
-    
+            # Create MQTT client
+            self.client = mqtt.Client(transport="websockets")
+            self.client.username_pw_set(USERNAME, PASSWORD)
+            self.client.tls_set()  # Enable TLS
+
+            # Assign callbacks
+            self.client.on_connect = on_connect
+            self.client.on_message = self._on_mqtt_message
+
+            # Connect to the broker
+            self.client.connect(host, port)
+
+            # Start the MQTT loop
+            self.client.loop_start()
+            self.log.info("✅ MQTT client setup complete and connected to HiveMQ broker")
+        except Exception as e:
+            self.log.error(f"❌ Error setting up MQTT client: {e}")   
+
+    def _subscribe_device_topics(self):
+        for topic in self.topics.values():
+            self.client.subscribe(topic)
+
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
             payload = msg.payload.decode().strip()  # Decode the payload and strip whitespace
-            if payload:  # Check if the payload is not empty
-                payload = json.loads(payload)
+            self.log.info("✅ MQTT topic {topic} and payload {payload} en message {msg}")
+            if payload:
+                    try:
+                        payload_json = json.loads(payload)
+                    except Exception:
+                        payload_json = payload
             else:
-                payload = {}  # Default to an empty dictionary if no payload is provided
+                payload_json = {}
 
-            self.log.info(f"Received topic: {topic} with payload: {payload}")
-            if topic == "request_flow_mappings":
-                self._send_flow_mappings()
+            # Naam claimen
+            if topic == f"nieuw/{self.device_name}" and not self.naam_geclaimd:
+                try:
+                    nieuwe_naam = payload_json.get("nieuwe_naam")
+                    secret = payload_json.get("secret")
+                except Exception:
+                    self.client.publish(f"{self.device_name}/NaamError", "Ongeldig payload-formaat")
+                    return
 
-            elif topic == "save_flow_mappings":
-                self._save_flow_mappings(payload)
+                if secret != self.secret:
+                    self.client.publish(f"{self.device_name}/NaamError", "Secret ongeldig")
+                    return
 
-            elif topic == "request_flows":
-                self._request_flows(payload)
+                # Naam claimen en topics updaten
+                self.device_name = nieuwe_naam
+                self.config["device"]["name"] = nieuwe_naam
+                self.config["device"]["naam_geclaimd"] = True
+                for key in self.topics:
+                    self.topics[key] = f"{nieuwe_naam}/{key}"
+                self.config["topics"] = self.topics
+                self._save_config()
+                self.naam_geclaimd = True
+                self.client.unsubscribe(f"nieuw/{self.device_name}")
+                self._subscribe_device_topics()
+                self.client.publish(f"{nieuwe_naam}/NaamOk", "ok")
+                return
+     
+            # Flow mapping topics
+            for func, tpc in self.topics.items():
+                if topic == tpc:
+                    if func == "request_flow_mappings":
+                        self._send_flow_mappings()
+                    elif func == "save_flow_mappings":
+                        self._save_flow_mappings(payload_json)
+                    elif func == "request_flows":
+                        self._request_flows(payload_json)
+                    # Add more handlers as needed
 
         except Exception as e:
             self.log.error(f"❌ Fout bij verwerken MQTT-bericht: {e}") 
@@ -165,7 +269,7 @@ class HomeyFlowSkill(OVOSSkill):
         try:
             with open(self.flow_mapping_path, "r") as f:
                 mappings = json.load(f)
-            self.client.publish("send_flow_mappings", json.dumps(mappings))
+            self.client.publish(self.topics.get("send_flow_mappings", "send_flow_mappings"), json.dumps(mappings))
             self.log.info("✅ Flow mappings verzonden.")
         except Exception as e:
             self.log.error(f"❌ Fout bij het verzenden van flow mappings: {e}")
@@ -189,25 +293,30 @@ class HomeyFlowSkill(OVOSSkill):
             # Restart OVOS service to retrain Padatious
             self.restart_ovos_service()
 
-            self.client.publish("saved_flow_mappings", json.dumps({"status": "success"}))
+            self.client.publish(self.topics.get("saved_flow_mappings", "saved_flow_mappings"), json.dumps({"status": "success"}))
             self.log.info("✅ Flow mappings opgeslagen en intent-bestanden bijgewerkt.")
         except Exception as e:
-            self.client.publish("saved_flow_mappings", json.dumps({"status": "failure", "error": str(e)}))
+            self.client.publish(self.topics.get("saved_flow_mappings", "saved_flow_mappings"), json.dumps({"status": "failure", "error": str(e)}))
             self.log.error(f"❌ Fout bij het opslaan van flow mappings: {e}")
 
     def _request_flows(self, payload):
         try:
+
             search_string = payload.get("name", "")
-            args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/get_flow.js"), search_string]
+            args = ["node", self.nodejs_get_flow, search_string]
+            script_dir = os.path.dirname(self.nodejs_get_flow)
+
+            result = subprocess.run(args, cwd=script_dir, capture_output=True, text=True, check=True)
+            #args = ["node", self.nodejs_get_flow, search_string]
             self.log.info("✅ Start the subprocess for Homey API.")
-            result = subprocess.run(args, capture_output=True, text=True, check=True)
+            #result = subprocess.run(args, capture_output=True, text=True, check=True)
             flows = json.loads(result.stdout.strip())
 
             # Check payload size
             payload_size = len(json.dumps(flows))
             self.log.info(f"Payload size: {payload_size} bytes")
 
-            self.client.publish("send_flows", json.dumps(flows))
+            self.client.publish(self.topics.get("send_flows", "send_flows"), json.dumps(flows))
             self.log.info("✅ Flows verzonden.")
         except subprocess.CalledProcessError as e:
             self.log.error(f"❌ Fout bij ophalen van flows: {e.stderr}")
@@ -284,6 +393,7 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Onverwachte fout bij het herstarten van de OVOS-service: {e}")
 
+
     def handle_start_flow(self, message):
         # Extract the utterance from the message
         utterance = message.data.get("utterance", "").strip().lower()
@@ -322,18 +432,19 @@ class HomeyFlowSkill(OVOSSkill):
         closest_sentence = closest_matches[0]
         flow_name = sentence_to_flow[closest_sentence]
         flow_info = mappings[flow_name]
-
         flow_id = flow_info.get("id")
         if not flow_id:
             self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
             self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
 
+        self.log.info(f"✅ Het pad naar start_Flow.js is {self.nodejs_start_flow}")
         # Stel het pad in naar het Node.js-script en geef de flow-id door als argument
-        args = ["node", os.path.expanduser("~/.venvs/ovos/lib/python3.11/site-packages/ovos_skill_homeyflowtrigger/nodejs/start_flow.js"), flow_id]
+        args = ["node", self.nodejs_start_flow, flow_id]
+        script_dir = os.path.dirname(self.nodejs_start_flow)  # Get the directory of the script
 
         try:
-            result = subprocess.run(args, capture_output=True, text=True, check=True)
+            result = subprocess.run(args, cwd=script_dir, capture_output=True, text=True, check=True)
             response = result.stdout.strip() or f"De flow '{flow_name}' is gestart."
             self.log.info(f"✅ {response}")
         except subprocess.CalledProcessError as e:
