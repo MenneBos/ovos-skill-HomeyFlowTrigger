@@ -18,6 +18,25 @@ DEFAULT_SETTINGS = {
     "log_level": "INFO"
 }
 
+def get_default_lang():
+    import os, json
+    conf_paths = [
+        os.path.expanduser("~/.mycroft/mycroft.conf"),
+        "/etc/mycroft/mycroft.conf",
+        os.path.join(os.getcwd(), "mycroft.conf")
+    ]
+    for path in conf_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    conf = json.load(f)
+                lang = conf.get("lang") or conf.get("language")
+                if lang:
+                    return lang.lower()
+            except Exception:
+                pass
+    return "en-us"
+
 class HomeyFlowSkill(OVOSSkill):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
