@@ -19,19 +19,19 @@
       text-align: center;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-    header img {
-      max-height: 60px;
-      vertical-align: middle;
-    }
     header h1 {
-      display: inline-block;
       margin: 0;
-      margin-left: 10px;
       font-size: 24px;
       color: #333;
     }
     main {
       padding: 20px;
+    }
+    .wizard-page {
+      display: none;
+    }
+    .wizard-page.active {
+      display: block;
     }
     button, input {
       margin: 5px;
@@ -47,7 +47,7 @@
       background-color: #ffcc00;
     }
     input {
-      width: 600px;
+      width: 400px;
     }
     #flowMappings {
       margin-top: 20px;
@@ -81,33 +81,44 @@
 </head>
 <body>
   <header>
-    <img src="logo.png" alt="Stemcom Logo">
-    <h1>Flow Mappings Manager</h1>
+    <h1>HomeyFlowTrigger Device Manager</h1>
   </header>
-
   <main>
-    <label for="brokerIp">HiveMQ Broker URL:</label>
-    <input type="text" id="brokerIp" placeholder="Enter Broker URL (e.g., wss://your-broker-url:8884/mqtt)">
-    <br>
-    <label for="brokerLogin">Login:</label>
-    <input type="text" id="brokerLogin" placeholder="Enter Login">
-    <br>
-    <label for="brokerPassword">Password:</label>
-    <input type="password" id="brokerPassword" placeholder="Enter Password">
-    <br>
-    <label for="deviceName">Device naam (prefix):</label>
-    <input type="text" id="deviceName" placeholder="Bijv. Jarvis">
-    <br>
-    <button id="connectBroker">Connect to HiveMQ Broker</button>
-    <span id="broker_status"></span>
-    <br>
-    <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
-    <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
-    <button id="requestFlows" disabled>Request Flows</button>
+    <!-- Page 1: Connect to Broker -->
+    <div id="page1" class="wizard-page active">
+      <h2>1. Connect to HiveMQ Broker</h2>
+      <label>Broker URL: <input id="brokerIp" placeholder="wss://your-broker-url:8884/mqtt"></label><br>
+      <label>Login: <input id="brokerLogin"></label><br>
+      <label>Password: <input id="brokerPassword" type="password"></label><br>
+      <button id="connectBroker">Connect</button>
+      <span id="broker_status"></span>
+    </div>
 
-    <div id="flowMappings">
-      <h2>Flow Mappings</h2>
-      <div id="flowsContainer"></div>
+    <!-- Page 2: Claim Device Name -->
+    <div id="page2" class="wizard-page">
+      <h2>2. Claim Device Name</h2>
+      <label>Default device name: <input id="defaultDevice" placeholder="KwebbelKast_"></label><br>
+      <label>Secret: <input id="secret"></label><br>
+      <label>New device name: <input id="newDeviceName" placeholder="Jarvis"></label><br>
+      <button id="claimDeviceBtn">Claim Device Name</button>
+      <span id="claim_status"></span>
+      <br>
+      <button onclick="showPage(1)">Back</button>
+    </div>
+
+    <!-- Page 3: Flow Mappings -->
+    <div id="page3" class="wizard-page">
+      <h2>3. Flow Mappings</h2>
+      <label>Device name (prefix): <input id="deviceName" readonly></label>
+      <br>
+      <button id="requestFlowMappings" disabled>Request Flow Mappings</button>
+      <button id="saveFlowMappings" disabled>Save Flow Mappings</button>
+      <button id="requestFlows" disabled>Request Flows</button>
+      <div id="flowMappings">
+        <div id="flowsContainer"></div>
+      </div>
+      <br>
+      <button onclick="showPage(2)">Back</button>
     </div>
   </main>
 
@@ -119,6 +130,12 @@
     let client;
     let flowMappings = {};
     let devicePrefix = "";
+    let brokerConnected = false;
+
+    function showPage(nr) {
+      document.querySelectorAll('.wizard-page').forEach(div => div.classList.remove('active'));
+      document.getElementById('page' + nr).classList.add('active');
+    }
 
     // Helper om topic te genereren met prefix
     function topic(name) {
@@ -131,10 +148,9 @@
       const brokerUrl = document.getElementById('brokerIp').value.trim();
       const username = document.getElementById('brokerLogin').value.trim();
       const password = document.getElementById('brokerPassword').value.trim();
-      devicePrefix = document.getElementById('deviceName').value.trim();
 
-      if (!brokerUrl || !username || !password || !devicePrefix) {
-        alert('Please fill in all fields (Broker URL, Login, Password, Device naam).');
+      if (!brokerUrl || !username || !password) {
+        alert('Please fill in all fields (Broker URL, Login, Password).');
         return;
       }
 
@@ -142,13 +158,22 @@
 
       client.onConnectionLost = (responseObject) => {
         document.getElementById('broker_status').innerText = '❌ Connection lost: ' + responseObject.errorMessage;
+        brokerConnected = false;
       };
 
       client.onMessageArrived = (message) => {
         const topicName = message.destinationName;
         const payload = message.payloadString;
-        // Dynamisch op prefix filteren
-        if (topicName === topic('send_flow_mappings')) {
+        // Handle claim responses
+        if (topicName.endsWith('/NaamOk')) {
+          document.getElementById('claim_status').innerText = "✅ Device name claimed successfully!";
+          devicePrefix = document.getElementById('newDeviceName').value.trim();
+          document.getElementById('deviceName').value = devicePrefix;
+          showPage(3);
+          enableFlowButtons(true);
+        } else if (topicName.endsWith('/NaamError')) {
+          document.getElementById('claim_status').innerText = "❌ Error: " + payload;
+        } else if (topicName === topic('send_flow_mappings')) {
           flowMappings = JSON.parse(payload);
           displayFlowMappings();
         } else if (topicName === topic('saved_flow_mappings')) {
@@ -162,20 +187,52 @@
       client.connect({
         onSuccess: () => {
           document.getElementById('broker_status').innerText = "✅ Connected!";
-          // Subscribe op device-specifieke topics
-          client.subscribe(topic('send_flow_mappings'));
-          client.subscribe(topic('saved_flow_mappings'));
-          client.subscribe(topic('send_flows'));
-          // Enable buttons
-          document.getElementById('requestFlowMappings').disabled = false;
-          document.getElementById('saveFlowMappings').disabled = false;
-          document.getElementById('requestFlows').disabled = false;
+          brokerConnected = true;
+          showPage(2);
         },
         userName: username,
         password: password,
         useSSL: brokerUrl.startsWith("wss://")
       });
     });
+
+    // Claim device name
+    document.getElementById('claimDeviceBtn').addEventListener('click', () => {
+      if (!brokerConnected) {
+        alert("Connect to the broker first!");
+        return;
+      }
+      const defaultDevice = document.getElementById('defaultDevice').value.trim();
+      const secret = document.getElementById('secret').value.trim();
+      const newDeviceName = document.getElementById('newDeviceName').value.trim();
+      console.log("defaultDevice:", defaultDevice, "secret:", secret, "newDeviceName:", newDeviceName);
+      if (!defaultDevice || !secret || !newDeviceName) {
+        document.getElementById('claim_status').innerText = "❌ Please fill in all fields.";
+        return;
+      }
+
+      // Subscribe to response topics
+      client.subscribe(`${newDeviceName}/NaamOk`);
+      client.subscribe(`${defaultDevice}/NaamError`);
+      client.subscribe(`${newDeviceName}/NaamError`);
+
+      // Send claim request
+      const payload = JSON.stringify({
+        nieuwe_naam: newDeviceName,
+        secret: secret,
+        timestamp: Date.now()
+      });
+      const message = new Paho.MQTT.Message(payload);
+      message.destinationName = `nieuw/${defaultDevice}`;
+      client.send(message);
+    });
+
+    // Enable/disable flow mapping buttons
+    function enableFlowButtons(enable) {
+      document.getElementById('requestFlowMappings').disabled = !enable;
+      document.getElementById('saveFlowMappings').disabled = !enable;
+      document.getElementById('requestFlows').disabled = !enable;
+    }
 
     // Request flow mappings
     document.getElementById('requestFlowMappings').addEventListener('click', () => {

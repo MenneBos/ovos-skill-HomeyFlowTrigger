@@ -115,14 +115,14 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Register all .intent files so the Python script can use the intent
         self.register_all_intents()
-        self.add_event("homey_flow_trigger", self.handle_start_flow)
+        #self.add_event("homey_flow_trigger", self.handle_start_flow)
     
     def _load_config(self):
         """Load the configuration file."""
         try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
-                self.log.info(f"✅ Loaded config.json: {config}")
+                self.log.info(f"✅ Loaded config.json")
                 return config
         except Exception as e:
             self.log.error(f"❌ Failed to load config.json: {e}")
