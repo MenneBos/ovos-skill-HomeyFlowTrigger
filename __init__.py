@@ -234,6 +234,15 @@ class HomeyFlowSkill(OVOSSkill):
         for topic in self.topics.values():
             self.client.subscribe(topic)
 
+    def _save_config(self):
+        """Save the current config to the config.json file."""
+        try:
+            with open(self.config_path, "w") as f:
+                json.dump(self.config, f, indent=2)
+            self.log.info("✅ config.json updated and saved.")
+        except Exception as e:
+            self.log.error(f"❌ Failed to save config.json: {e}")
+
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
