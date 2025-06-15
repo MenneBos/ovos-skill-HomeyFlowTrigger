@@ -32,8 +32,8 @@ async function getFilteredFlows() {
     });
 
     // Return the filtered flows to the Python script
-    //console.log(JSON.stringify(flowMappings));
-    console.log("Flows zijn verzonden");
+    console.log(JSON.stringify(flowMappings));
+    //console.log("Flows zijn verzonden");
   } catch (error) {
     console.error("Een fout in het verkrijgen van de flow", error.message);
     process.exit(1); // Exit with an error code
