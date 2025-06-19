@@ -65,21 +65,21 @@ class HomeyFlowSkill(OVOSSkill):
         else:
             self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
 
-    @classproperty
-    def runtime_requirements(self):
+    #/@classproperty
+    #def runtime_requirements(self):
         # if this isn't defined the skill will
         # only load if there is internet
-        return RuntimeRequirements(
-            internet_before_load=False,
-            network_before_load=True,
-            gui_before_load=False,
-            requires_internet=False,
-            requires_network=True,
-            requires_gui=False,
-            no_internet_fallback=True,
-            no_network_fallback=True,
-            no_gui_fallback=True,
-        )
+    #   return RuntimeRequirements(
+    #        internet_before_load=False,
+    #        network_before_load=True,
+    #        gui_before_load=False,
+    #        requires_internet=False,
+    #        requires_network=True,
+    #        requires_gui=False,
+    #        no_internet_fallback=True,
+    #        no_network_fallback=True,
+    #       no_gui_fallback=True,
+    #   )
     
     def on_settings_changed(self):
         """This method is called when the skill settings are changed."""
@@ -127,6 +127,15 @@ class HomeyFlowSkill(OVOSSkill):
         except Exception as e:
             self.log.error(f"❌ Failed to load config.json: {e}")
             return {}
+
+    def _save_config(self):
+        """Save the current config to the config.json file."""
+        try:
+            with open(self.config_path, "w") as f:
+                json.dump(self.config, f, indent=2)
+            self.log.info("✅ config.json updated and saved.")
+        except Exception as e:
+            self.log.error(f"❌ Failed to save config.json: {e}")
 
     def clear_intent_files(self):
         """Remove all existing .intent files in the intent directory."""
@@ -234,15 +243,6 @@ class HomeyFlowSkill(OVOSSkill):
         for topic in self.topics.values():
             self.client.subscribe(topic)
 
-    def _save_config(self):
-        """Save the current config to the config.json file."""
-        try:
-            with open(self.config_path, "w") as f:
-                json.dump(self.config, f, indent=2)
-            self.log.info("✅ config.json updated and saved.")
-        except Exception as e:
-            self.log.error(f"❌ Failed to save config.json: {e}")
-
     def _on_mqtt_message(self, client, userdata, msg):
         try:
             topic = msg.topic
@@ -334,7 +334,6 @@ class HomeyFlowSkill(OVOSSkill):
 
     def _request_flows(self, payload):
         try:
-
             search_string = payload.get("name", "")
             args = ["node", self.nodejs_get_flow, search_string]
             script_dir = os.path.dirname(self.nodejs_get_flow)
@@ -379,6 +378,8 @@ class HomeyFlowSkill(OVOSSkill):
             for intent_file in existing_intent_files - required_intent_files:
                 flow_name = os.path.splitext(intent_file)[0]
                 self.delete_intent_file(flow_name)
+            
+            self.log.info(f"✅ .intent-bestand aangeapst voor flow: {flow_name}")
 
         except Exception as e:
             self.log.error(f"❌ Fout bij het bijwerken van intent-bestanden: {e}")
