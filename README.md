@@ -10,7 +10,7 @@ The `ovos-skill-HomeyFlowTrigger` repository is an OpenVoiceOS (OVOS) skill desi
    - Communicates with Homey Pro using the Homey API v3 to retrieve and trigger flows.
    - Supports secure interaction with Homey using API keys.
 
-2. **Flow Management**:
+2. **Homey Flow Management**:
    - Dynamically fetches Homey flows and maps them to custom voice commands (utterances).
    - Allows users to edit, delete, or add new flows via a web interface.
 
@@ -26,19 +26,24 @@ The `ovos-skill-HomeyFlowTrigger` repository is an OpenVoiceOS (OVOS) skill desi
      - `save_flow_mappings`: Save updated flow mappings from the web interface.
      - `request_flows`: Fetch available flows from Homey.
      - `send_flows`: Send filtered flows from Homey to the web interface.
+     - To-Do command to receive 
 
 5. **Fuzzy Matching**:
    - Uses fuzzy logic to match voice commands to flows, even with slight deviations in utterances.
 
 6. **Dynamic Intent Updates**:
-   - Automatically updates `.intent` files and retrains OVOS Padatious when flow mappings are modified.
+   - Automatically updates `.intent` files and retrain OVOS Padatious when flow mappings are modified.
 
+7. ***Persistent User Data**
+   - The skill now stores user-specific configuration and flow mappings in the directory `~/.config/ovos-skill-homeyflowtrigger/`.
+   - This ensures that your `config.json` and `flow_mappings.json` are preserved across skill upgrades and reinstalls.
 ---
+
 
 ## **How It Works**
 
 1. **Voice Command Execution**:
-   - A user speaks a command (e.g., "aanwezig in kantoor").
+   - A user speaks a command (e.g., "presence in office").
    - The skill matches the command to a flow using fuzzy logic and triggers the corresponding flow via the Homey API.
 
 2. **Flow Management via Web Interface**:
@@ -78,6 +83,10 @@ Navigate to the Node.js scripts directory and install dependencies:
 cd nodejs
 npm install homey-api
 ```
+- The Node.js scripts (`get_flow.js`, `start_flow.js`) now read `config.json` from the user config directory:
+  - `~/.config/ovos-skill-homeyflowtrigger/config.json`
+- Ensure this file exists and is correctly configured before running the scripts.
+
 
 ### **5. Configure Homey API**
 - Generate an API key for Homey Pro via the Homey app or web interface.
@@ -173,3 +182,10 @@ graph TD;
     GetFlow_TriggerFlow <--> OVOS_Core;
 ```
 This repository provides a powerful and flexible way to control Homey flows using OVOS, enabling seamless integration between voice commands and smart home automation.
+
+---
+**Persistent User Data**
+
+- The skill now stores user-specific configuration and flow mappings in the directory `~/.config/ovos-skill-homeyflowtrigger/`.
+- This ensures that your `config.json` and `flow_mappings.json` are preserved across skill upgrades and reinstalls.
+---

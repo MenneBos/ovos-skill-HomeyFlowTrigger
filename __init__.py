@@ -489,11 +489,16 @@ class HomeyFlowSkill(OVOSSkill):
 
         try:
             result = subprocess.run(args, cwd=script_dir, capture_output=True, text=True, check=True)
-            if self.language.lower() == "nl-nl":
-                response = result.stdout.strip() or f"De actie '{flow_name}' is gestart."
+            output = result.stdout.strip()
+            if output == "success":
+                if self.language.lower() == "nl-nl":
+                    response = f"De actie '{flow_name}' is gestart."
+                else:
+                    response = f"The flow '{flow_name}' has been started."
             else:
-                response = result.stdout.strip() or f"The flow '{flow_name}' has been started."
-            self.log.info(f"✅ {response}")
+                response = output  # In case you ever want to print a custom message from JS
+            self.log.info(f"✅ {response} in {self.language.lower()}")
+
         except subprocess.CalledProcessError as e:
             if self.language.lower() == "nl-nl":
                 response = f"Er ging iets mis bij het starten van '{flow_name}'."
