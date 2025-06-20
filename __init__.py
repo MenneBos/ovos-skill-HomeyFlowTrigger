@@ -56,7 +56,7 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Language detection
         self.language = get_default_lang()
-        self.log.info(f"Detected language: {self.language}")
+        self.log.info(f"✅ Detected language: {self.language}")
 
         if self.language.lower() == "nl-nl":
             self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
@@ -104,7 +104,7 @@ class HomeyFlowSkill(OVOSSkill):
         self._setup_mqtt()
 
         # Other initialization tasks
-        self.flow_mapping_path = os.path.join(self.root_dir, "flow_mappings.json")
+        self.flow_mapping_path = os.path.expanduser("~/.config/ovos-skill-homeyflowtrigger/flow_mappings.json")
         #self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
         # Remove all existing .intent files
@@ -444,7 +444,10 @@ class HomeyFlowSkill(OVOSSkill):
                 mappings = json.load(f)
         except Exception as e:
             self.log.error(f"❌ Kan flow_mappings.json niet laden: {e}")
-            self.speak("Er ging iets mis bij het openen van de flow instellingen.")
+            if self.language.lower() == "nl-nl":
+                self.speak("Er ging iets mis bij het openen van de instellingen.")
+            else:
+                self.speak("Something went wrong while opening the settings.") 
             return
 
         # Flatten the sentences in flow_mappings.json for fuzzy matching
@@ -458,7 +461,10 @@ class HomeyFlowSkill(OVOSSkill):
         closest_matches = get_close_matches(utterance, all_sentences, n=1, cutoff=0.6)
 
         if not closest_matches:
-            self.speak(f"Ik weet niet welke flow ik moet starten voor '{utterance}'.")
+            if self.language.lower() == "nl-nl":
+                self.speak("Ik weet niet welke actie ik moet uitvoeren voor '{utterance}'.")
+            else:
+                self.speak("Not sure which flow to start for '{utterance}'.") 
             self.log.error(f"❌ Geen overeenkomende zin gevonden voor utterance: '{utterance}'")
             return
 
@@ -468,7 +474,10 @@ class HomeyFlowSkill(OVOSSkill):
         flow_info = mappings[flow_name]
         flow_id = flow_info.get("id")
         if not flow_id:
-            self.speak(f"Ik weet niet welke flow ik moet starten voor '{flow_name}'.")
+            if self.language.lower() == "nl-nl":
+                self.speak(f"Ik weet niet welke actie ik moet uitvoeren voor '{flow_name}'.")
+            else:
+                self.speak(f"Not sure which flow to start for '{flow_name}'.")  
             self.log.error(f"❌ Geen id gevonden voor flow: '{flow_name}'")
             return
 
@@ -479,10 +488,16 @@ class HomeyFlowSkill(OVOSSkill):
 
         try:
             result = subprocess.run(args, cwd=script_dir, capture_output=True, text=True, check=True)
-            response = result.stdout.strip() or f"De flow '{flow_name}' is gestart."
+            if self.language.lower() == "nl-nl":
+                response = result.stdout.strip() or f"De actie '{flow_name}' is gestart."
+            else:
+                response = result.stdout.strip() or f"The flow '{flow_name}' has been started."
             self.log.info(f"✅ {response}")
         except subprocess.CalledProcessError as e:
-            response = f"Er ging iets mis bij het starten van '{flow_name}'."
+            if self.language.lower() == "nl-nl":
+                response = f"Er ging iets mis bij het starten van '{flow_name}'."
+            else:
+                response = f"Something went wrong while starting the flow '{flow_name}'."
             self.log.error(f"❌ Fout bij starten van flow '{flow_name}': {e.stderr}")
 
         self.speak(response)
