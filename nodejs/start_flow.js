@@ -1,8 +1,11 @@
 import { HomeyAPI } from 'homey-api';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-// Load configuration
-const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+// Load configuration from user config directory
+const configPath = path.join(os.homedir(), '.config', 'ovos-skill-homeyflowtrigger', 'config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 const flowId = process.argv[2];
 

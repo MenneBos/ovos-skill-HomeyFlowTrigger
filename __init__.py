@@ -36,7 +36,8 @@ class HomeyFlowSkill(OVOSSkill):
         self.override = True
 
         # Load configuration from config.json
-        self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
+        #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
+        self.config_path = os.path.expanduser("~/.config/ovos-skill-homeyflowtrigger/config.json")
         self.config = self._load_config()
 
         # Extract values from the configuration (safe extraction)
