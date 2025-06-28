@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 
 // Load configuration from user config directory
-const configPath = path.join(os.homedir(), '.config', 'ovos-skill-homeyflowtrigger', 'config.json');
+const configPath = path.join(os.homedir(), '.config', 'ovos_skill_homeyflowtrigger', 'config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 const flowId = process.argv[2];
