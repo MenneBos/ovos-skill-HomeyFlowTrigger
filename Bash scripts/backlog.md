@@ -20,6 +20,7 @@ Gelukt
 + Onderzoeken waarom Homey Flow trigger zovaak van messagebus status veranderd
 + opnieuw installeren met behoud van config.json
 + opnieuw installeren met behoud van flow_mappings.json
++ Homeyflowskill aanpassen voor engelse uitspraak
 
 
 Mislukt
