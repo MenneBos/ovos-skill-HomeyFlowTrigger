@@ -37,7 +37,7 @@ class HomeyFlowSkill(OVOSSkill):
 
         # Load configuration from config.json
         #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
-        self.config_path = os.path.expanduser("~/.config/ovos-skill-homeyflowtrigger/config.json")
+        self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
         self.config = self._load_config()
 
         # Extract values from the configuration (safe extraction)
@@ -105,7 +105,7 @@ class HomeyFlowSkill(OVOSSkill):
         self._setup_mqtt()
 
         # Other initialization tasks
-        self.flow_mapping_path = os.path.expanduser("~/.config/ovos-skill-homeyflowtrigger/flow_mappings.json")
+        self.flow_mapping_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/flow_mappings.json")
         #self.register_intent("HomeyFlow.intent", self.handle_start_flow)
 
         # Remove all existing .intent files
