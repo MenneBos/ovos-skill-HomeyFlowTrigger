@@ -41,8 +41,8 @@ class HomeyFlowSkill(OVOSSkill):
         #self.nodejs_start_flow = os.path.expanduser(self.config["nodejs"]["start_flow"])
         #self.nodejs_get_flow = os.path.expanduser(self.config["nodejs"]["get_flow"])
 
-    @classproperty
-    def runtime_requirements(self):
+    #@classproperty
+    #def runtime_requirements(self):
         # if this isn't defined the skill will
         # only load if there is internet
         return RuntimeRequirements(
