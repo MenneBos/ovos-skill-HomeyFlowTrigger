@@ -5,14 +5,15 @@ Backlog voor hivemind, Erasmus
 + integratie via de matrix bot van OVOS Jarbas https://github.com/JarbasHiveMind/HiveMind-matrix-bridge
 + bouw een nieuwe satellite met een nieuwe RPI Zero 2W en mics en test Bash script
 + berichten tussen verschillende ovos satelliten
++ LLM op een server plaatsen (NVIDIA Jetson Orin Nano Super Devkit of NUC Asus 15+ pro)
+
 
 
 Under development
 
 
 Testen
-+ AI profiel opstellen voor Erasmus, Nederlands, filosofisch en vriendelijk en duidelijk
-+ Homeyflowskill aanpassen voor nederlandse uitspraak
++ check snelheidsverschil tussen cli en gesproken reactie van Erasmus, lijkt dat de CPU eerst nog scheduled tasks moeten oppakken voordat LLM in kickt
 
 
 Gelukt
@@ -21,7 +22,8 @@ Gelukt
 + opnieuw installeren met behoud van config.json
 + opnieuw installeren met behoud van flow_mappings.json
 + Homeyflowskill aanpassen voor engelse uitspraak
-
++ AI profiel opstellen voor Erasmus, Nederlands, filosofisch en vriendelijk en duidelijk
++ Homeyflowskill aanpassen voor nederlandse uitspraak
 
 Mislukt
 + Vosk wakework Erasmus of Erasmis configureren en testen

@@ -66,7 +66,7 @@ class HomeyFlowSkill(OVOSSkill):
         else:
             self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
 
-    /@classproperty
+    @classproperty
     def runtime_requirements(self):
         # if this isn't defined the skill will
         # only load if there is internet
