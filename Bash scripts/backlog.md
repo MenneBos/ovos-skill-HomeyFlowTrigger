@@ -6,6 +6,7 @@ Backlog voor hivemind, Erasmus
 + bouw een nieuwe satellite met een nieuwe RPI Zero 2W en mics en test Bash script
 + berichten tussen verschillende ovos satelliten
 + LLM op een server plaatsen (NVIDIA Jetson Orin Nano Super Devkit of NUC Asus 15+ pro)
++ check op commando die aan elkaar ziiten (middag zon, ochtend zon etc)
 
 
 

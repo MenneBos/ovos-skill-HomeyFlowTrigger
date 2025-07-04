@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HomeyFlowTrigger Device Manager</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <script src="config.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -382,6 +383,14 @@
         container.appendChild(flowDiv);
       }
     }
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.defaultBrokerConfig) {
+        document.getElementById('brokerIp').value = window.defaultBrokerConfig.url;
+        document.getElementById('brokerLogin').value = window.defaultBrokerConfig.login;
+      } else {
+        console.warn('defaultBrokerConfig is niet gedefinieerd!');
+      }
+    });
   </script>
 </body>
 </html>

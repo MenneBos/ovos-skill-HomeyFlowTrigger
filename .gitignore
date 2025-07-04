@@ -1,8 +1,10 @@
+backlog.md
 flow_mappings.json
 *.sh
 *.crt
 *.key
 *.srl
 *.csr
+HTML/config.js
 nodejs/config.json
 nodejs/package-lock.json
