@@ -43,11 +43,21 @@ class HomeyFlowSkill(OVOSSkill):
         self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
         self.nodejs_get_flow = os.path.expanduser(self.config.get("nodejs", {}).get("get_flow", ""))
 
+        # Load configuration from config.json
+        #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
+        self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
+        self.config = self._load_config()
+
         # Device/topic info (safe extraction)
         self.device_name = self.config.get("device", {}).get("name", "")
         self.secret = self.config.get("device", {}).get("secret", "")
         self.naam_geclaimd = self.config.get("device", {}).get("naam_geclaimd", False)
         self.topics = self.config.get("topics", {})
+
+        # Load configuration from config.json
+        #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
+        self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
+        self.config = self._load_config()
 
         # Language detection
         self.language = self.get_default_lang()
