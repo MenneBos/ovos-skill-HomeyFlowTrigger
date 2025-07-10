@@ -18,9 +18,9 @@ DEFAULT_SETTINGS = {
 }
 
 class HomeyFlowSkill(OVOSSkill):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.override = True
+    #def __init__(self, *args, **kwargs):
+    #    super().__init__(*args, **kwargs)
+    #    self.override = True
     
     def initialize(self):
         """Initialize the skill."""
@@ -73,7 +73,6 @@ class HomeyFlowSkill(OVOSSkill):
         if not self.broker_url:
             self.log.error("❌ broker_url is missing in config.json. MQTT setup skipped.")
             return
-
         # Set up MQTT after configuration is loaded
         self._setup_mqtt()
 
