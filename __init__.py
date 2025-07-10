@@ -22,23 +22,13 @@ class HomeyFlowSkill(OVOSSkill):
         super().__init__(*args, **kwargs)
         self.override = True
     
-    def on_settings_changed(self):
-        """This method is called when the skill settings are changed."""
-        LOG.info("Settings changed!")
-
-    @property
-    def log_level(self):
-        """Dynamically get the 'log_level' value from the skill settings file.
-        If it doesn't exist, return the default value.
-        This will reflect live changes to settings.json files (local or from backend)
-        """
-        return self.settings.get("log_level", "INFO")   
-
     def initialize(self):
         """Initialize the skill."""
-        # Language detection
-        self.language = get_default_lang()
-        self.log.info(f"✅ Detected language: {self.language}")
+        # Use settings in .config/mycroft/skills/ovos-skill-homeyflowtrigger/settings.json
+        self.settings.merge(DEFAULT_SETTINGS, new_only=True)
+        # set a callback to be called when settings are changed
+        self.settings_change_callback = self.on_settings_changed
+
         # Load configuration from config.json
         #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
         self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
@@ -53,10 +43,6 @@ class HomeyFlowSkill(OVOSSkill):
         self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
         self.nodejs_get_flow = os.path.expanduser(self.config.get("nodejs", {}).get("get_flow", ""))
 
-        # Language detection
-        self.language = get_default_lang()
-        self.log.info(f"✅ Detected language: {self.language}")
-
         # Device/topic info (safe extraction)
         self.device_name = self.config.get("device", {}).get("name", "")
         self.secret = self.config.get("device", {}).get("secret", "")
@@ -64,9 +50,8 @@ class HomeyFlowSkill(OVOSSkill):
         self.topics = self.config.get("topics", {})
 
         # Language detection
-        self.language = get_default_lang()
+        self.language = self.get_default_lang()
         self.log.info(f"✅ Detected language: {self.language}")
-
         if self.language.lower() == "nl-nl":
             self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
         elif self.language.lower() == "en-us":
@@ -95,6 +80,18 @@ class HomeyFlowSkill(OVOSSkill):
         # Register all .intent files so the Python script can use the intent
         self.register_all_intents()
         #self.add_event("homey_flow_trigger", self.handle_start_flow)
+
+    def on_settings_changed(self):
+        """This method is called when the skill settings are changed."""
+        LOG.info("Settings changed!")
+
+    @property
+    def log_level(self):
+        """Dynamically get the 'log_level' value from the skill settings file.
+        If it doesn't exist, return the default value.
+        This will reflect live changes to settings.json files (local or from backend)
+        """
+        return self.settings.get("log_level", "INFO")   
 
     def get_default_lang():
         conf_path = os.path.expanduser("~/.config/mycroft/mycroft.conf")
