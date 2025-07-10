@@ -36,6 +36,9 @@ class HomeyFlowSkill(OVOSSkill):
 
     def initialize(self):
         """Initialize the skill."""
+        # Language detection
+        self.language = get_default_lang()
+        self.log.info(f"✅ Detected language: {self.language}")
         # Load configuration from config.json
         #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
         self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
@@ -49,6 +52,10 @@ class HomeyFlowSkill(OVOSSkill):
         self.broker_password = self.config.get("broker", {}).get("password", "")
         self.nodejs_start_flow = os.path.expanduser(self.config.get("nodejs", {}).get("start_flow", ""))
         self.nodejs_get_flow = os.path.expanduser(self.config.get("nodejs", {}).get("get_flow", ""))
+
+        # Language detection
+        self.language = get_default_lang()
+        self.log.info(f"✅ Detected language: {self.language}")
 
         # Device/topic info (safe extraction)
         self.device_name = self.config.get("device", {}).get("name", "")
