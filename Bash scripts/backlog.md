@@ -6,6 +6,7 @@ Backlog voor hivemind, Erasmus
 + berichten tussen verschillende ovos satelliten
 + LLM op een server plaatsen (NVIDIA Jetson Orin Nano Super Devkit of NUC Asus 15+ pro)
 + check op commando die aan elkaar ziiten (middag zon, ochtend zon etc)
++ workshop is version Found existing installation: ovos-workshop 3.4.0a1, newest is 7.0
 
 
 Under development

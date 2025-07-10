@@ -60,14 +60,15 @@ class HomeyFlowSkill(OVOSSkill):
         self.config = self._load_config()
 
         # Language detection
-        self.language = self.get_default_lang()
-        self.log.info(f"✅ Detected language: {self.language}")
-        if self.language.lower() == "nl-nl":
-            self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
-        elif self.language.lower() == "en-us":
-            self.intent_dir = os.path.join(self.root_dir, "locale", "en-us", "intents")
-        else:
-            self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
+        #self.language = self.get_default_lang()
+        #self.log.info(f"✅ Detected language: {self.language}")
+        #if self.language.lower() == "nl-nl":
+        #    self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
+        #elif self.language.lower() == "en-us":
+        #    self.intent_dir = os.path.join(self.root_dir, "locale", "en-us", "intents")
+        #else:
+        #    self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
+        self.intent_dir = os.path.join(self.root_dir, "locale", "nl-nl", "intents")
 
         # Ensure configuration is loaded before setting up MQTT
         if not self.broker_url:
