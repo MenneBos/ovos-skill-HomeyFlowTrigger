@@ -17,24 +17,25 @@ DEFAULT_SETTINGS = {
     "log_level": "INFO"
 }
 
-def get_default_lang():
-    conf_path = os.path.expanduser("~/.config/mycroft/mycroft.conf")
-    if os.path.exists(conf_path):
-        try:
-            with open(conf_path, "r") as f:
-                conf = json.load(f)
-            lang = conf.get("lang") or conf.get("language")
-            if lang:
-                return lang.lower()
-        except Exception:
-            pass
-    return "en-us"
-
 class HomeyFlowSkill(OVOSSkill):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.override = True
+    
+    def on_settings_changed(self):
+        """This method is called when the skill settings are changed."""
+        LOG.info("Settings changed!")
 
+    @property
+    def log_level(self):
+        """Dynamically get the 'log_level' value from the skill settings file.
+        If it doesn't exist, return the default value.
+        This will reflect live changes to settings.json files (local or from backend)
+        """
+        return self.settings.get("log_level", "INFO")   
+
+    def initialize(self):
+        """Initialize the skill."""
         # Load configuration from config.json
         #self.config_path = os.path.join(self.root_dir, "nodejs", "config.json")
         self.config_path = os.path.expanduser("~/.config/ovos_skill_homeyflowtrigger/config.json")
@@ -66,36 +67,6 @@ class HomeyFlowSkill(OVOSSkill):
         else:
             self.log.error("❌ No valid langauge (nl-nl or en-us detected in mycroft.conf).")
 
-    #@classproperty
-    #def runtime_requirements(self):
-        # if this isn't defined the skill will
-        # only load if there is internet
-   #    return RuntimeRequirements(
-    #        internet_before_load=False,
-    #        network_before_load=True,
-    #        gui_before_load=False,
-    #        requires_internet=False,
-    #        requires_network=True,
-    #        requires_gui=False,
-    #        no_internet_fallback=True,
-    #        no_network_fallback=True,
-    #       no_gui_fallback=True,
-    #   )
-    
-    def on_settings_changed(self):
-        """This method is called when the skill settings are changed."""
-        LOG.info("Settings changed!")
-
-    @property
-    def log_level(self):
-        """Dynamically get the 'log_level' value from the skill settings file.
-        If it doesn't exist, return the default value.
-        This will reflect live changes to settings.json files (local or from backend)
-        """
-        return self.settings.get("log_level", "INFO")   
-
-    def initialize(self):
-        """Initialize the skill."""
         # Ensure configuration is loaded before setting up MQTT
         if not self.broker_url:
             self.log.error("❌ broker_url is missing in config.json. MQTT setup skipped.")
@@ -117,7 +88,20 @@ class HomeyFlowSkill(OVOSSkill):
         # Register all .intent files so the Python script can use the intent
         self.register_all_intents()
         #self.add_event("homey_flow_trigger", self.handle_start_flow)
-    
+
+    def get_default_lang():
+        conf_path = os.path.expanduser("~/.config/mycroft/mycroft.conf")
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, "r") as f:
+                    conf = json.load(f)
+                lang = conf.get("lang") or conf.get("language")
+                if lang:
+                    return lang.lower()
+            except Exception:
+                pass
+        return "en-us"
+
     def _load_config(self):
         """Load the configuration file."""
         try:
