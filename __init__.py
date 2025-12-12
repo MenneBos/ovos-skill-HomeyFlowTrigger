@@ -9,7 +9,6 @@ import os
 import json
 import time
 import re
-from collections import deque
 import paho.mqtt.client as mqtt
 from difflib import get_close_matches
 
@@ -487,7 +486,7 @@ class HomeyFlowSkill(OVOSSkill):
                 else:
                     response = f"The flow '{flow_name}' has been started."
             else:
-                response = output  # In case you ever want to print a custom message from JS
+                response = "Six Seven" #output # In case you ever want to print a custom message from JS
             self.log.info(f"✅ {response} in {self.language.lower()}")
 
         except subprocess.CalledProcessError as e:

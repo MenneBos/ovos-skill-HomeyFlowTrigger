@@ -8,6 +8,7 @@ const configPath = path.join(os.homedir(), '.config', 'ovos_skill_homeyflowtrigg
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 const searchString = process.argv[2] || "";
+console.log("Directory to config file:", configPath);
 
 async function getFilteredFlows() {
   try {
