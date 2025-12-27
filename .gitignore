@@ -10,3 +10,4 @@ nodejs/config.json
 nodejs/package-lock.json
 Bash scripts/backlog.md
 Bash scripts
+docker-compose.yml
